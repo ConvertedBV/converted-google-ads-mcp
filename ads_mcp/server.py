@@ -42,6 +42,7 @@ def run_server() -> None:
             transport="streamable-http",
             port=port,
             host="0.0.0.0",
+            stateless_http=True,
             uvicorn_config={"access_log": False},
         )
     else:
