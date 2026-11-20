@@ -195,7 +195,8 @@ def update_entity_status(
     """Pauses or enables campaigns, ad groups, ads or keywords.
 
     Use this to pause underperforming campaigns, ad groups, ads or keywords, or
-    to re-enable them. Removing entities is intentionally not supported.
+    to re-enable them. Permanent removal is a separate tool,
+    remove_entities, for paused entities only.
     {workflow}
     Args:
         customer_id: Google Ads Customer ID (digits or hyphenated).

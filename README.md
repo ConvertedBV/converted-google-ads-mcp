@@ -60,8 +60,18 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   of an audience, with index vs. the country).
 > - **`audiences` tools**: `create_remarketing_list` (URL-based website
 >   visitors), `manage_audience_targeting` (user lists, interests and custom
->   audiences on Search/Display, as observation or targeting) and
->   `manage_demographic_exclusions` (age and gender).
+>   audiences on Search/Display, as observation or targeting),
+>   `manage_demographic_exclusions` (age and gender) and
+>   `upload_customer_match` (customer lists for targeting, exclusion or
+>   PMax signals: emails, phones and names are normalized and SHA-256
+>   hashed on the server, EU consent is required and sent as GRANTED).
+> - `remove_entities` (in `campaign_management`): permanent removal of
+>   campaigns, ad groups and asset groups (paused first) and ads or
+>   keywords, with 30-day spend and conversions in the proposal.
+> - `revert_change` (in `campaign_management`): undo an update from
+>   `get_change_history` (status, budgets, bids, targets, names, URLs),
+>   refused when the entity was changed again since and capped by the
+>   same guardrails.
 > - **`experiments` tools**: `create_experiment` (A/B test with a treatment draft
 >   to edit with the other tools) and `manage_experiment` (schedule, end, promote).
 > - `manage_account_exclusions` (in `campaign_management`): account-wide
