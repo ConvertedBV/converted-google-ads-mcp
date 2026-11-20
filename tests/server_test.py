@@ -52,6 +52,28 @@ class TestUtils(unittest.TestCase):
             uvicorn_config={"access_log": False},
         )
 
+    def test_oauth_server_stateless_http_opt_in(self):
+        """Serverless hosts can opt into stateless Streamable HTTP."""
+        from ads_mcp import server
+
+        env = {
+            "GOOGLE_ADS_MCP_OAUTH_CLIENT_ID": "test-client",
+            "GOOGLE_ADS_MCP_OAUTH_CLIENT_SECRET": "test-secret",
+            "GOOGLE_ADS_MCP_STATELESS_HTTP": "true",
+            "PORT": "18080",
+        }
+        with patch.dict(server.os.environ, env, clear=True):
+            with patch.object(server.mcp, "run") as run:
+                server.run_server()
+
+        run.assert_called_once_with(
+            transport="streamable-http",
+            port=18080,
+            host="0.0.0.0",
+            stateless_http=True,
+            uvicorn_config={"access_log": False},
+        )
+
     def test_oauth_access_token_not_logged(self):
         """Tests that OAuth access token is not logged."""
         import asyncio
