@@ -5418,6 +5418,212 @@
         }
       },
       "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Uploads offline conversions such as qualified or closed leads.\n\nUse an UPLOAD_CLICKS conversion action (create one with\ncreate_conversion_action). Each row needs a click ID (gclid, gbraid or\nwbraid) and/or an email or phone number (enhanced conversions for\nleads); emails and phone numbers are normalized and SHA-256 hashed on\nthe server and never sent in plain text. `ad_user_data_consent` must\nreflect the consent you collected (required for EEA users). Use\norder_id to avoid duplicates. Check results later with the search tool\non offline_conversion_upload_conversion_action_summary.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "ad_user_data_consent": {
+            "description": "GRANTED or DENIED.",
+            "enum": [
+              "GRANTED",
+              "DENIED"
+            ],
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "conversion_action_id": {
+            "description": "The numeric UPLOAD_CLICKS conversion action ID.",
+            "type": "string"
+          },
+          "conversions": {
+            "description": "1-200 conversions.",
+            "items": {
+              "description": "One offline conversion, e.g. a qualified lead from the CRM.",
+              "properties": {
+                "conversion_time": {
+                  "description": "'YYYY-MM-DD HH:MM:SS+01:00' (with time zone offset).",
+                  "type": "string"
+                },
+                "currency": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "ISO currency, e.g. EUR (default: account)."
+                },
+                "email": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Email for enhanced conversions; hashed on the server."
+                },
+                "gbraid": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "iOS app click ID."
+                },
+                "gclid": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Google click ID."
+                },
+                "order_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Optional unique ID to prevent duplicates."
+                },
+                "phone_number": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Phone in E.164 (+32...) format; hashed on the server."
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Conversion value."
+                },
+                "wbraid": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "iOS web click ID."
+                }
+              },
+              "required": [
+                "conversion_time"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "conversion_action_id",
+          "conversions",
+          "ad_user_data_consent"
+        ],
+        "type": "object"
+      },
+      "name": "conversions_upload_offline_conversions",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Conversions Upload Offline Conversions"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
         "readOnlyHint": true
       },
       "description": "Returns ids of customers directly accessible by the user authenticating the call.\n\nUse this tool first to discover available customer IDs if the user hasn't\nprovided one. Most other tools require a valid customer ID as input.",

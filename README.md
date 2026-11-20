@@ -66,8 +66,11 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 > - **`conversions` tools**: `get_conversion_setup` (read-only overview with warnings
 >   such as primary actions without conversions), `create_conversion_action`
 >   (returns the GTM `send_to` for web tags), `update_conversion_action` (primary /
->   secondary, counting, value, lookback) and `set_conversion_goals` (account or
->   campaign goals used for bidding).
+>   secondary, counting, value, lookback), `set_conversion_goals` (account or
+>   campaign goals used for bidding) and `upload_offline_conversions` (CRM leads
+>   via gclid/gbraid/wbraid and/or enhanced conversions for leads; emails and
+>   phone numbers are normalized and SHA-256 hashed server-side, consent is an
+>   explicit input).
 > - **Guardrails** (environment variables):
 >   - `GOOGLE_ADS_MCP_READ_ONLY=true` removes every tool that is not marked
 >     read-only, regardless of `tools_config.yaml` (kill switch).
