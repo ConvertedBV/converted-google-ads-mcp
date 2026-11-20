@@ -35,6 +35,7 @@ ALL_CATEGORIES = [
     "labels",
     "assets",
     "campaign_management",
+    "campaign_builder",
 ]
 
 # When truthy, every tool that is not annotated readOnlyHint=True is removed

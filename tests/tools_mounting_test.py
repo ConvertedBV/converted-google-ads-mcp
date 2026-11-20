@@ -74,8 +74,23 @@ class TestToolsMounting(unittest.IsolatedAsyncioTestCase):
             "update_cpc_bid",
             "add_keywords",
             "manage_negative_keywords",
+            "update_campaign_bidding",
+            "update_campaign_settings",
+            "add_campaign_targeting",
+            "remove_campaign_targeting",
+            "update_bid_modifiers",
+            "manage_shared_negative_list",
+            "link_assets",
+            "manage_recommendations",
+            "update_responsive_search_ad",
         ):
             self.assertIn(f"campaign_management_{name}", tool_names)
+        for name in (
+            "create_search_campaign",
+            "create_ad_group",
+            "create_responsive_search_ad",
+        ):
+            self.assertIn(f"campaign_builder_{name}", tool_names)
 
     async def test_read_only_mode_drops_mutating_tools(self):
         """GOOGLE_ADS_MCP_READ_ONLY removes every tool not marked read-only."""

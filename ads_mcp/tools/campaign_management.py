@@ -22,13 +22,8 @@ human-readable ``change_items`` (with current values where they exist) plus a
 checksum commits the change.
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-import inspect
-import os
-import re
-import textwrap
 from typing import Any
 
 from fastmcp import FastMCP
@@ -37,22 +32,30 @@ from google.ads.googleads.util import get_nested_attr
 from mcp.types import ToolAnnotations
 
 from ads_mcp import propose_and_confirm as pac
+from ads_mcp.ad_builders import KeywordMatchType
+from ads_mcp.mutate_helpers import (
+    COMPOSITE_ID_RE as _COMPOSITE_ID_RE,
+    DEFAULT_MAX_INCREASE_PCT,
+    MAX_ENTITIES_PER_CALL,
+    MAX_INCREASE_PCT_ENV_VAR,
+    MAX_KEYWORDS_PER_CALL,
+    SIMPLE_ID_RE as _SIMPLE_ID_RE,
+    dedupe as _dedupe,
+    enforce_increase_guardrail as _enforce_increase_guardrail,
+    enum_value as _enum_value,
+    format_money as _format_money,
+    get_max_increase_pct,
+    quoted_list as _quoted_list,
+    require_customer_id as _require_customer_id,
+    require_simple_id as _require_simple_id,
+    run_mutation as _run_mutation,
+    search as _search,
+    to_micros as _to_micros,
+    with_workflow_doc as _with_workflow_doc,
+)
 import ads_mcp.utils as utils
 
 campaign_management_mcp = FastMCP("campaign_management")
-
-# Upper bound on entities per call keeps proposals reviewable by a human.
-MAX_ENTITIES_PER_CALL = 200
-MAX_KEYWORDS_PER_CALL = 500
-
-# Guardrail against fat-finger increases (e.g. 5000 instead of 50). A single
-# call may raise a budget or bid by at most this percentage. Set the variable
-# to "off" to disable the guardrail.
-MAX_INCREASE_PCT_ENV_VAR = "GOOGLE_ADS_MCP_MAX_INCREASE_PCT"
-DEFAULT_MAX_INCREASE_PCT = 100.0
-
-_SIMPLE_ID_RE = re.compile(r"^\d+$")
-_COMPOSITE_ID_RE = re.compile(r"^\d+~\d+$")
 
 
 class EntityType(str, Enum):
@@ -76,14 +79,6 @@ class BidEntityType(str, Enum):
 
     AD_GROUP = "AD_GROUP"
     KEYWORD = "KEYWORD"
-
-
-class KeywordMatchType(str, Enum):
-    """Keyword match types."""
-
-    EXACT = "EXACT"
-    PHRASE = "PHRASE"
-    BROAD = "BROAD"
 
 
 class NegativeKeywordLevel(str, Enum):
@@ -166,39 +161,6 @@ _ENTITY_CONFIGS: dict[str, _EntityConfig] = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _enum_value(value: Any, enum_cls: type[Enum], arg_name: str) -> str:
-    """Normalizes an Enum member or string to an upper-case member value."""
-    raw = value.value if isinstance(value, Enum) else str(value).upper()
-    valid = [member.value for member in enum_cls]
-    if raw not in valid:
-        raise ToolError(
-            f"Error: Invalid {arg_name} '{value}'. Must be one of: "
-            f"{', '.join(valid)}."
-        )
-    return raw
-
-
-def _require_customer_id(customer_id: str | int) -> str:
-    cleaned = utils.clean_customer_id(customer_id)
-    if not cleaned:
-        raise ToolError("Error: 'customer_id' must contain digits.")
-    return cleaned
-
-
-def _require_simple_id(value: str | int | None, arg_name: str) -> str:
-    cleaned = str(value).strip() if value is not None else ""
-    if not _SIMPLE_ID_RE.match(cleaned):
-        raise ToolError(
-            f"Error: '{arg_name}' must be a numeric ID (e.g. '123456')."
-        )
-    return cleaned
-
-
 def _normalize_entity_id(raw_id: str | int, config: _EntityConfig) -> str:
     cleaned = str(raw_id).strip()
     pattern = _COMPOSITE_ID_RE if config.composite_id else _SIMPLE_ID_RE
@@ -208,150 +170,6 @@ def _normalize_entity_id(raw_id: str | int, config: _EntityConfig) -> str:
             f"{config.id_hint}."
         )
     return cleaned
-
-
-def _dedupe(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for value in values:
-        if value not in seen:
-            seen.add(value)
-            result.append(value)
-    return result
-
-
-def _to_micros(amount: float, arg_name: str) -> int:
-    """Converts a currency amount to micros, rounded to whole cents."""
-    try:
-        numeric = float(amount)
-    except (TypeError, ValueError) as exc:
-        raise ToolError(f"Error: '{arg_name}' must be a number.") from exc
-    if numeric <= 0:
-        raise ToolError(f"Error: '{arg_name}' must be greater than 0.")
-    return int(round(numeric * 100)) * 10_000
-
-
-def _format_money(micros: int, currency: str = "") -> str:
-    formatted = f"{micros / 1_000_000:.2f}"
-    return f"{formatted} {currency}".strip()
-
-
-def get_max_increase_pct() -> float | None:
-    """Returns the configured max increase percentage, or None if disabled."""
-    raw = os.environ.get(MAX_INCREASE_PCT_ENV_VAR)
-    if raw is None or not raw.strip():
-        return DEFAULT_MAX_INCREASE_PCT
-    if raw.strip().lower() in ("off", "none", "false", "disabled"):
-        return None
-    try:
-        value = float(raw)
-    except ValueError as exc:
-        raise ToolError(
-            f"Error: {MAX_INCREASE_PCT_ENV_VAR} must be a number or 'off', "
-            f"got '{raw}'."
-        ) from exc
-    return value if value > 0 else None
-
-
-def _enforce_increase_guardrail(
-    current_micros: int, new_micros: int, what: str
-) -> None:
-    max_pct = get_max_increase_pct()
-    if max_pct is None or current_micros <= 0:
-        return
-    limit = current_micros * (1 + max_pct / 100)
-    if new_micros > limit:
-        increase_pct = (new_micros / current_micros - 1) * 100
-        raise ToolError(
-            f"Error: The new {what} is {increase_pct:.0f}% higher than the "
-            f"current value, which exceeds the {max_pct:.0f}% safety limit "
-            f"per change. Confirm the amount with the user and apply the "
-            f"increase in smaller steps, or ask the server administrator to "
-            f"adjust {MAX_INCREASE_PCT_ENV_VAR}."
-        )
-
-
-def _search(ga_client: Any, customer_id: str, query: str) -> list[Any]:
-    ga_service = utils.get_googleads_service_from_client(
-        ga_client, "GoogleAdsService"
-    )
-    return list(ga_service.search(customer_id=customer_id, query=query))
-
-
-def _quoted_list(values: list[str]) -> str:
-    # Values are validated resource names (digits, '/', '~' and fixed path
-    # segments only), so quoting cannot be broken out of.
-    return ", ".join(f"'{value}'" for value in values)
-
-
-def _run_mutation(
-    *,
-    ga_client: Any,
-    customer_id: str,
-    service_name: str,
-    request_type: str,
-    mutate_method: str,
-    operations: list[Any],
-    validate_only: bool,
-    checksum: str | None,
-    operation_payload: dict[str, Any],
-    change_items: list[pac.ChangeItem],
-    success_message: str,
-    error_prefix: str,
-) -> str:
-    """Builds a mutate request and runs it through propose-and-confirm."""
-    service = utils.get_googleads_service_from_client(ga_client, service_name)
-    request = ga_client.get_type(request_type)
-    request.customer_id = customer_id
-    request.operations.extend(operations)
-    request.validate_only = validate_only
-    mutate = getattr(service, mutate_method)
-
-    def _validate() -> None:
-        request.validate_only = True
-        mutate(request=request)
-
-    def _commit() -> str:
-        request.validate_only = False
-        response = mutate(request=request)
-        ids = [utils.extract_id(r.resource_name) for r in response.results]
-        return f"{success_message} Affected IDs: {', '.join(ids)}"
-
-    return pac.propose_and_confirm(
-        customer_id=customer_id,
-        validate_only=validate_only,
-        checksum=checksum,
-        operation_payload=operation_payload,
-        change_items=change_items,
-        validate_fn=_validate,
-        commit_fn=_commit,
-        error_prefix=error_prefix,
-    )
-
-
-_WORKFLOW_DOC = """
-    Propose & Confirm Workflow (`validate_only` and `checksum`):
-    1. Call with `validate_only=True` (the default). The request is dry-run
-       against the Google Ads API and the tool returns `change_items` (with
-       current values where available) and a `checksum`. Nothing is changed.
-    2. Present the `change_items` to the user and wait for explicit approval.
-    3. Only after the user confirms, call again with `validate_only=False`,
-       the exact same parameters and the returned `checksum`.
-"""
-
-
-def _with_workflow_doc(fn: Callable[..., str]) -> Callable[..., str]:
-    """Fills the shared workflow text into a tool docstring.
-
-    Must be applied below ``@tool`` so the description FastMCP registers
-    already contains the workflow instructions.
-    """
-    # Python 3.13+ already strips docstring indentation at compile time, so
-    # normalize both texts to get the same description on every version.
-    fn.__doc__ = inspect.cleandoc(fn.__doc__ or "").format(
-        workflow=textwrap.dedent(_WORKFLOW_DOC)
-    )
-    return fn
 
 
 # ---------------------------------------------------------------------------

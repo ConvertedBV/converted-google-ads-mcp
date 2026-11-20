@@ -18,13 +18,34 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   | `update_cpc_bid` | Set the manual max CPC of an ad group or keyword. |
 >   | `add_keywords` | Add keywords to an ad group (match type, status, optional bid). |
 >   | `manage_negative_keywords` | Add or remove campaign/ad group negative keywords; REMOVE only touches verified negatives. |
+>   | `update_campaign_bidding` | Switch bidding strategy and/or set tCPA / tROAS (also on portfolio strategies). |
+>   | `update_campaign_settings` | Name, start/end date, search partners, Display Network. |
+>   | `add_campaign_targeting` | Locations, location exclusions, languages, ad schedules. |
+>   | `remove_campaign_targeting` | Remove location, language, schedule or radius criteria (nothing else). |
+>   | `update_bid_modifiers` | Device, location and ad schedule bid modifiers. |
+>   | `manage_shared_negative_list` | Create shared negative keyword lists, edit them, attach/detach campaigns. |
+>   | `link_assets` | Link or unlink sitelinks, callouts, snippets, ... at account, campaign or ad group level. |
+>   | `manage_recommendations` | Apply or dismiss Google recommendations (no API dry run; verified to be open). |
+>   | `update_responsive_search_ad` | Replace the texts, URL and paths of an existing RSA. |
 >
 >   Proposals show current values next to the new ones (e.g. `40.00 EUR → 50.00 EUR`).
+> - **`campaign_builder` tools** that build in one atomic request (everything or
+>   nothing), validated end-to-end by the API dry run:
+>
+>   | Tool | What it does |
+>   | --- | --- |
+>   | `create_search_campaign` | Budget, campaign, targeting, negatives and 1-20 ad groups with keywords and RSAs. PAUSED by default. |
+>   | `create_ad_group` | A complete ad group (keywords, negatives, 1-3 RSAs) in an existing Search campaign. |
+>   | `create_responsive_search_ad` | One RSA in an existing ad group (max 3 per ad group). |
+>
+>   Disable the namespace in `tools_config.yaml` to allow maintenance but no
+>   new campaigns.
 > - **Guardrails** (environment variables):
 >   - `GOOGLE_ADS_MCP_READ_ONLY=true` removes every tool that is not marked
 >     read-only, regardless of `tools_config.yaml` (kill switch).
 >   - `GOOGLE_ADS_MCP_MAX_INCREASE_PCT` (default `100`) caps how much a single
->     call may raise a budget or bid; `off` disables it. Decreases are never capped.
+>     call may raise a budget, bid or target CPA; `off` disables it. Decreases
+>     are never capped.
 > - **Vercel deployment** via `Dockerfile.vercel`, with the Redis storage extra and
 >   `GOOGLE_ADS_MCP_STATELESS_HTTP=true` (serverless instances do not share MCP
 >   sessions). Other hosts keep upstream's stateful default.

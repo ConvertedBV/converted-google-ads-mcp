@@ -11,3 +11,5 @@ namespaces:
   assets: true
   # Converted: status, budget, bid and keyword management (propose & confirm).
   campaign_management: true
+  # Converted: build new Search campaigns, ad groups and ads (atomic).
+  campaign_builder: true
