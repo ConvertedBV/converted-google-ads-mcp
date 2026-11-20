@@ -51,6 +51,11 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >
 >   Disable the namespace in `tools_config.yaml` to allow maintenance but no
 >   new campaigns.
+> - **Audience research** (read-only, Audience Insights): `suggest_audiences`
+>   (audiences from a plain-language customer description), `find_audience_segments`
+>   (affinity / in-market / life-event IDs by keyword) and
+>   `analyze_audience_composition` (interests, demographics and YouTube channels
+>   of an audience, with index vs. the country).
 > - **`audiences` tools**: `create_remarketing_list` (URL-based website
 >   visitors), `manage_audience_targeting` (user lists, interests and custom
 >   audiences on Search/Display, as observation or targeting) and

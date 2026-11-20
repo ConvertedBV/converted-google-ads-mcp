@@ -687,6 +687,101 @@
         }
       },
       "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Describes who is in an audience: other interests, demographics, and\nthe YouTube channels they watch.\n\nPass the user_interest_ids that define the audience (from\nfind_audience_segments or suggest_audiences). Each attribute comes with\nits share of the audience and an index versus the country baseline\n(index > 1 means over-represented), which helps choose extra signals,\nexclusions, ad texts and visuals.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name of the advertiser being planned for."
+          },
+          "country_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Country geo target IDs (default [\"2056\"], Belgium)."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "user_interest_ids": {
+            "description": "1-10 user interest IDs defining the audience.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "customer_id",
+          "user_interest_ids"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_analyze_audience_composition",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Analyze Audience Composition"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
         "destructiveHint": false,
         "readOnlyHint": false
       },
@@ -802,6 +897,108 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Audiences Create Remarketing List"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Finds Google audience segments by keyword.\n\nSearches affinity, in-market and life-event segments (e.g. \"air\nconditioning\", \"home improvement\", \"moving\") and returns their\nuser_interest_id, usable in manage_audience_targeting\n(user_interest_ids) and as Performance Max audience signals.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name of the advertiser being planned for."
+          },
+          "country_id": {
+            "default": "2056",
+            "description": "Country geo target ID (default 2056, Belgium).",
+            "type": "string"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "query": {
+            "description": "Search text in English or the target language.",
+            "type": "string"
+          },
+          "segment_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "AFFINITY_USER_INTEREST",
+                    "IN_MARKET_USER_INTEREST",
+                    "LIFE_EVENT_USER_INTEREST"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "AFFINITY, IN_MARKET and/or LIFE_EVENT (default all)."
+          }
+        },
+        "required": [
+          "customer_id",
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_find_audience_segments",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Find Audience Segments"
     },
     {
       "_meta": {
@@ -1108,6 +1305,108 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Audiences Manage Demographic Exclusions"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Suggests target audiences from a plain-language description.\n\nDescribe the ideal customer, e.g. \"families in Flanders considering an\nair conditioner for their home\". Returns suggested audiences with their\ninterests (with user_interest_id for targeting or PMax signals), age\nranges, gender, parental status, coverage, index and potential YouTube\nreach. Uses Google's Audience Insights.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name of the advertiser being planned for."
+          },
+          "country_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Country geo target IDs (default [\"2056\"], Belgium)."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "description": {
+            "description": "Plain-language description of the audience.",
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "objective": {
+            "default": "CONSIDERATION",
+            "description": "AWARENESS, CONSIDERATION (default) or RESEARCH.",
+            "enum": [
+              "AWARENESS",
+              "CONSIDERATION",
+              "RESEARCH"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_id",
+          "description"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_suggest_audiences",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Suggest Audiences"
     },
     {
       "_meta": {
