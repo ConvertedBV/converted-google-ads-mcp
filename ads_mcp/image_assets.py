@@ -23,17 +23,20 @@ Google Ads requires for the role the image is used in.
 from dataclasses import dataclass
 from enum import Enum
 import hashlib
+import http.client
 import ipaddress
 import socket
+import ssl
 import struct
+import time
 from typing import Any
 import urllib.parse
-import urllib.request
 
 from fastmcp.exceptions import ToolError
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MAX_FETCHED_BYTES_PER_CALL = 20 * 1024 * 1024
+MAX_URLS_PER_CALL = 30
 FETCH_TIMEOUT_SECONDS = 15
 _USER_AGENT = "Mozilla/5.0 (compatible; google-ads-mcp image fetcher)"
 
@@ -72,29 +75,91 @@ class FetchedImage:
         return hashlib.sha256(self.data).hexdigest()
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise ToolError(
-            f"Error: '{req.full_url}' redirects to '{newurl}'. Pass the final "
-            "image URL instead."
-        )
+def _resolve_public_ip(url: str) -> tuple[str, str, int, str]:
+    """Validates the URL and resolves it once to a public IP address.
 
-
-def _require_public_host(url: str) -> None:
+    Returns (hostname, ip, port, path). Every resolved address must be public;
+    the connection is then made to exactly this IP, so a DNS answer that
+    changes after the check (DNS rebinding) cannot redirect the request.
+    """
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme != "https" or not parsed.hostname:
         raise ToolError(f"Error: Image URL must use https, got '{url}'.")
+    port = parsed.port or 443
     try:
-        infos = socket.getaddrinfo(parsed.hostname, parsed.port or 443)
+        infos = socket.getaddrinfo(
+            parsed.hostname, port, type=socket.SOCK_STREAM
+        )
     except socket.gaierror as exc:
         raise ToolError(f"Error: Cannot resolve '{parsed.hostname}'.") from exc
-    for info in infos:
-        address = ipaddress.ip_address(info[4][0])
-        if not address.is_global:
+    addresses = [ipaddress.ip_address(info[4][0]) for info in infos]
+    if not addresses or any(not a.is_global for a in addresses):
+        raise ToolError(
+            f"Error: '{parsed.hostname}' resolves to a non-public address; "
+            "only public image URLs are allowed."
+        )
+    path = parsed.path or "/"
+    if parsed.query:
+        path += f"?{parsed.query}"
+    return parsed.hostname, str(addresses[0]), port, path
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection to a fixed IP with SNI and certificate checks for the
+    original hostname. No proxies are used."""
+
+    def __init__(self, hostname: str, ip: str, port: int, timeout: float):
+        super().__init__(
+            hostname,
+            port,
+            timeout=timeout,
+            context=ssl.create_default_context(),
+        )
+        self._ip = ip
+
+    def connect(self) -> None:
+        sock = socket.create_connection((self._ip, self.port), self.timeout)
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+
+def _download(hostname: str, ip: str, port: int, path: str, url: str) -> bytes:
+    """Downloads with one overall deadline and a size cap; no redirects."""
+    deadline = time.monotonic() + FETCH_TIMEOUT_SECONDS
+    connection = _PinnedHTTPSConnection(
+        hostname, ip, port, FETCH_TIMEOUT_SECONDS
+    )
+    try:
+        connection.request(
+            "GET",
+            path,
+            headers={"User-Agent": _USER_AGENT, "Accept": "image/*"},
+        )
+        response = connection.getresponse()
+        if 300 <= response.status < 400:
             raise ToolError(
-                f"Error: '{parsed.hostname}' resolves to a non-public address; "
-                "only public image URLs are allowed."
+                f"Error: '{url}' redirects to '{response.getheader('Location')}'."
+                " Pass the final image URL instead."
             )
+        if response.status != 200:
+            raise ToolError(f"Error: '{url}' returned HTTP {response.status}.")
+        chunks: list[bytes] = []
+        size = 0
+        while True:
+            if time.monotonic() > deadline:
+                raise ToolError(
+                    f"Error: Downloading '{url}' took longer than "
+                    f"{FETCH_TIMEOUT_SECONDS} seconds."
+                )
+            chunk = response.read(64 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_IMAGE_BYTES:
+                raise ToolError(f"Error: '{url}' is larger than 5 MB.")
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        connection.close()
 
 
 def _sniff(data: bytes) -> tuple[str, int, int]:
@@ -158,18 +223,13 @@ def check_role(width: int, height: int, role: str, source: str) -> None:
 def fetch_image(url: str) -> FetchedImage:
     """Downloads an image from a public https URL, with safety limits."""
     url = (url or "").strip()
-    _require_public_host(url)
-    opener = urllib.request.build_opener(_NoRedirect)
-    request = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+    hostname, ip, port, path = _resolve_public_ip(url)
     try:
-        with opener.open(request, timeout=FETCH_TIMEOUT_SECONDS) as response:
-            data = response.read(MAX_IMAGE_BYTES + 1)
+        data = _download(hostname, ip, port, path, url)
     except ToolError:
         raise
     except Exception as exc:
         raise ToolError(f"Error: Could not download '{url}': {exc}") from exc
-    if len(data) > MAX_IMAGE_BYTES:
-        raise ToolError(f"Error: '{url}' is larger than 5 MB.")
     mime, width, height = _sniff(data)
     return FetchedImage(url, data, mime, width, height)
 
@@ -223,6 +283,11 @@ class AssetPool:
                 f"Error: Image '{ref}' must be an asset ID or an https URL."
             )
         if ref not in self._images:
+            if len(self.image_digests) >= MAX_URLS_PER_CALL:
+                raise ToolError(
+                    f"Error: More than {MAX_URLS_PER_CALL} image URLs in one "
+                    "call. Upload them first with create_image_assets."
+                )
             image = fetch_image(ref)
             self._fetched_bytes += len(image.data)
             if self._fetched_bytes > MAX_FETCHED_BYTES_PER_CALL:

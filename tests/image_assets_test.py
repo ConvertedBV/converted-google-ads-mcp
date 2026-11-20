@@ -35,7 +35,9 @@ def png(width: int, height: int) -> bytes:
 
 def jpeg(width: int, height: int) -> bytes:
     app0 = b"\xff\xe0" + struct.pack(">H", 16) + b"JFIF\x00" + b"\x00" * 9
-    sof0 = b"\xff\xc0" + struct.pack(">HBHH", 17, 8, height, width) + b"\x00" * 10
+    sof0 = (
+        b"\xff\xc0" + struct.pack(">HBHH", 17, 8, height, width) + b"\x00" * 10
+    )
     return b"\xff\xd8" + app0 + sof0 + b"\xff\xd9"
 
 
@@ -47,7 +49,9 @@ class TestSniffAndRoles(unittest.TestCase):
 
     def test_sniff_formats(self):
         self.assertEqual(ia._sniff(png(1200, 628)), ("IMAGE_PNG", 1200, 628))
-        self.assertEqual(ia._sniff(jpeg(1080, 1080)), ("IMAGE_JPEG", 1080, 1080))
+        self.assertEqual(
+            ia._sniff(jpeg(1080, 1080)), ("IMAGE_JPEG", 1080, 1080)
+        )
         gif = b"GIF89a" + struct.pack("<HH", 300, 300) + b"\x00" * 4
         self.assertEqual(ia._sniff(gif), ("IMAGE_GIF", 300, 300))
         with self.assertRaisesRegex(ToolError, "JPEG, PNG and GIF"):
@@ -69,44 +73,107 @@ class TestFetchImage(unittest.TestCase):
     def test_rejects_http_and_private_hosts(self):
         with self.assertRaisesRegex(ToolError, "must use https"):
             ia.fetch_image("http://example.be/a.png")
-        private = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.5", 443))]
+        private = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.5", 443))
+        ]
         with patch("socket.getaddrinfo", return_value=private):
             with self.assertRaisesRegex(ToolError, "non-public address"):
                 ia.fetch_image("https://intranet.example/a.png")
-        metadata = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("169.254.169.254", 443))]
+        metadata = [
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                6,
+                "",
+                ("169.254.169.254", 443),
+            )
+        ]
         with patch("socket.getaddrinfo", return_value=metadata):
             with self.assertRaisesRegex(ToolError, "non-public address"):
                 ia.fetch_image("https://metadata.example/a.png")
 
-    def _opener(self, data: bytes) -> MagicMock:
-        response = MagicMock()
-        response.read.return_value = data
-        response.__enter__.return_value = response
-        opener = MagicMock()
-        opener.open.return_value = response
-        return opener
+    def test_mixed_public_and_private_answer_is_refused(self):
+        mixed = public_dns() + [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))
+        ]
+        with patch("socket.getaddrinfo", return_value=mixed):
+            with self.assertRaisesRegex(ToolError, "non-public address"):
+                ia.fetch_image("https://rebind.example/a.png")
 
-    def test_downloads_and_sniffs(self):
-        with patch("socket.getaddrinfo", side_effect=public_dns), patch(
-            "urllib.request.build_opener", return_value=self._opener(png(1200, 628))
+    def test_downloads_from_the_checked_ip(self):
+        with (
+            patch("socket.getaddrinfo", side_effect=public_dns),
+            patch(
+                "ads_mcp.image_assets._download", return_value=png(1200, 628)
+            ) as download,
         ):
-            image = ia.fetch_image("https://favorcool.be/hero.png")
-        self.assertEqual((image.mime, image.width, image.height), ("IMAGE_PNG", 1200, 628))
+            image = ia.fetch_image("https://favorcool.be/img/hero.png?v=2")
+        download.assert_called_once_with(
+            "favorcool.be",
+            "142.250.0.1",
+            443,
+            "/img/hero.png?v=2",
+            "https://favorcool.be/img/hero.png?v=2",
+        )
+        self.assertEqual(
+            (image.mime, image.width, image.height), ("IMAGE_PNG", 1200, 628)
+        )
         self.assertEqual(len(image.sha256), 64)
 
-    def test_size_limit(self):
-        big = png(1200, 628) + b"\x00" * ia.MAX_IMAGE_BYTES
-        with patch("socket.getaddrinfo", side_effect=public_dns), patch(
-            "urllib.request.build_opener", return_value=self._opener(big)
-        ):
-            with self.assertRaisesRegex(ToolError, "larger than 5 MB"):
-                ia.fetch_image("https://favorcool.be/huge.png")
+    def test_connection_is_pinned_to_ip_with_sni(self):
+        connection = ia._PinnedHTTPSConnection(
+            "favorcool.be", "142.250.0.1", 443, 5
+        )
+        connection._context = MagicMock()
+        with patch("socket.create_connection") as create:
+            connection.connect()
+        create.assert_called_once_with(("142.250.0.1", 443), 5)
+        connection._context.wrap_socket.assert_called_once_with(
+            create.return_value, server_hostname="favorcool.be"
+        )
 
-    def test_redirects_are_refused(self):
-        handler = ia._NoRedirect()
-        request = MagicMock(full_url="https://a.be/x.png")
-        with self.assertRaisesRegex(ToolError, "redirects to"):
-            handler.redirect_request(request, None, 302, "Found", {}, "https://b.be/y.png")
+
+class TestDownload(unittest.TestCase):
+
+    def _connection(self, status=200, chunks=(), location=None):
+        response = MagicMock(status=status)
+        response.read.side_effect = list(chunks) + [b""]
+        response.getheader.return_value = location
+        connection = MagicMock()
+        connection.getresponse.return_value = response
+        return connection
+
+    def _download(self, connection):
+        with patch(
+            "ads_mcp.image_assets._PinnedHTTPSConnection",
+            return_value=connection,
+        ):
+            return ia._download(
+                "a.be", "1.2.3.4", 443, "/x.png", "https://a.be/x.png"
+            )
+
+    def test_reads_in_chunks(self):
+        data = self._download(self._connection(chunks=[b"ab", b"cd"]))
+        self.assertEqual(data, b"abcd")
+
+    def test_redirect_refused(self):
+        with self.assertRaisesRegex(
+            ToolError, "redirects to 'https://b.be/y.png'"
+        ):
+            self._download(
+                self._connection(status=302, location="https://b.be/y.png")
+            )
+
+    def test_size_limit(self):
+        chunk = b"x" * (1024 * 1024)
+        with self.assertRaisesRegex(ToolError, "larger than 5 MB"):
+            self._download(self._connection(chunks=[chunk] * 6))
+
+    def test_overall_deadline(self):
+        clock = iter([0, 1, ia.FETCH_TIMEOUT_SECONDS + 1])
+        with patch("time.monotonic", side_effect=lambda: next(clock)):
+            with self.assertRaisesRegex(ToolError, "took longer than"):
+                self._download(self._connection(chunks=[b"a", b"b", b"c"]))
 
 
 if __name__ == "__main__":
