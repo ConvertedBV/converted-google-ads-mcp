@@ -182,6 +182,17 @@ def get_conversion_setup(
     for row in stats:
         counts[row.segments.conversion_action] += row.metrics.all_conversions
 
+    # Smart bidding only uses primary actions whose goal is biddable, so only
+    # those can mislead it; other findings would be noise.
+    biddable_goals = {
+        (
+            row.customer_conversion_goal.category.name,
+            row.customer_conversion_goal.origin.name,
+        )
+        for row in goals
+        if row.customer_conversion_goal.biddable
+    }
+
     result_actions = []
     warnings: list[str] = []
     primary_goals: set[tuple[str, str]] = set()
@@ -190,6 +201,9 @@ def get_conversion_setup(
         category = action.category.name
         origin = action.origin.name
         conversions = round(counts.get(action.resource_name, 0.0), 1)
+        used_for_bidding = bool(
+            action.primary_for_goal and (category, origin) in biddable_goals
+        )
         if action.primary_for_goal:
             primary_goals.add((category, origin))
         result_actions.append(
@@ -200,6 +214,7 @@ def get_conversion_setup(
                 "origin": origin,
                 "type": action.type_.name,
                 "primary": action.primary_for_goal,
+                "used_for_bidding": used_for_bidding,
                 "counting": action.counting_type.name,
                 "default_value": action.value_settings.default_value or None,
                 "always_use_default_value": (
@@ -214,18 +229,20 @@ def get_conversion_setup(
                 f"conversions_{period_value.lower()}": conversions,
             }
         )
-        if action.primary_for_goal and conversions == 0:
+        if used_for_bidding and conversions == 0:
             warnings.append(
-                f"Primary action '{action.name}' recorded no conversions in "
-                f"{period_value}: check the tag or import."
+                f"Action '{action.name}' is used for bidding but recorded no "
+                f"conversions in {period_value}: check the tag or import."
             )
         if (
-            category in _LEAD_CATEGORIES
+            used_for_bidding
+            and category in _LEAD_CATEGORIES
             and action.counting_type.name == "MANY_PER_CLICK"
         ):
             warnings.append(
-                f"Lead action '{action.name}' counts every conversion "
-                "(MANY_PER_CLICK); leads are usually ONE_PER_CLICK."
+                f"Lead action '{action.name}' is used for bidding and counts "
+                "every conversion (MANY_PER_CLICK); leads are usually "
+                "ONE_PER_CLICK."
             )
 
     result_goals = []

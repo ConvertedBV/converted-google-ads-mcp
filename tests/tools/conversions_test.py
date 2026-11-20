@@ -73,9 +73,18 @@ class TestConversionSetup(MutateToolTestCase):
                     "SUBMIT_LEAD_FORM",
                     counting="MANY_PER_CLICK",
                 ),
+                # Primary, but its goal is not biddable: no warnings.
+                self._action(
+                    3, "Nieuwsbrief", "SIGNUP", counting="MANY_PER_CLICK"
+                ),
             ],
             [stats],
-            [self._goal("REQUEST_QUOTE", True), self._goal("PURCHASE", True)],
+            [
+                self._goal("REQUEST_QUOTE", True),
+                self._goal("SUBMIT_LEAD_FORM", True),
+                self._goal("SIGNUP", False),
+                self._goal("PURCHASE", True),
+            ],
         )
         result = json.loads(cv.get_conversion_setup(customer_id=CID))
         actions = {a["name"]: a for a in result["conversion_actions"]}
@@ -85,9 +94,16 @@ class TestConversionSetup(MutateToolTestCase):
         self.assertEqual(
             actions["Contactformulier"]["conversions_last_30_days"], 0.0
         )
+        self.assertTrue(actions["Contactformulier"]["used_for_bidding"])
+        self.assertFalse(actions["Nieuwsbrief"]["used_for_bidding"])
         warnings = "\n".join(result["warnings"])
-        self.assertIn("'Contactformulier' recorded no conversions", warnings)
-        self.assertIn("'Contactformulier' counts every conversion", warnings)
+        self.assertIn(
+            "'Contactformulier' is used for bidding but recorded no", warnings
+        )
+        self.assertIn(
+            "'Contactformulier' is used for bidding and counts every", warnings
+        )
+        self.assertNotIn("Nieuwsbrief", warnings)
         self.assertIn(
             "PURCHASE / WEBSITE is used for bidding but has no", warnings
         )
