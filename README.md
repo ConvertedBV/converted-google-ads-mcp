@@ -59,6 +59,19 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   to edit with the other tools) and `manage_experiment` (schedule, end, promote).
 > - `manage_account_exclusions` (in `campaign_management`): account-wide
 >   placement, YouTube channel and content label exclusions.
+> - `manage_bidding_adjustments` (in `campaign_management`): smart bidding data
+>   exclusions (periods with broken tracking) and seasonality adjustments (short
+>   events with an expected conversion rate change), per account, channel or
+>   campaign.
+> - **`account` tool** (read-only): `get_account_overview`, the starting point
+>   for an account: settings, per-campaign status, spend, conversions, CPA,
+>   ROAS and impression share lost to budget, plus flags (auto-tagging off,
+>   budget-limited, spend without conversions, limited campaigns, disapproved
+>   ads). `create_performance_max_campaign` also accepts a Merchant Center ID
+>   (and feed label) for retail campaigns.
+> - `create_extension_asset` (in `campaign_management`): call, promotion and
+>   price assets, created and linked to the account, a campaign or an ad group
+>   in one atomic step.
 > - **`keyword_planning` tools** (read-only, so also available in read-only mode):
 >   `generate_keyword_ideas` (from keywords, a URL or a site), `get_keyword_metrics`
 >   (volume, competition, top-of-page bids) and `forecast_keywords` (clicks, cost,
@@ -66,11 +79,31 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 > - **`conversions` tools**: `get_conversion_setup` (read-only overview with warnings
 >   such as primary actions without conversions), `create_conversion_action`
 >   (returns the GTM `send_to` for web tags), `update_conversion_action` (primary /
->   secondary, counting, value, lookback) and `set_conversion_goals` (account or
->   campaign goals used for bidding).
+>   secondary, counting, value, lookback), `set_conversion_goals` (account or
+>   campaign goals used for bidding) and `upload_offline_conversions` (CRM leads
+>   via gclid/gbraid/wbraid and/or enhanced conversions for leads; emails and
+>   phone numbers are normalized and SHA-256 hashed server-side, consent is an
+>   explicit input).
+> - **Way of working**: server instructions (`ads_mcp/instructions.py`) that MCP
+>   clients give the model on connect (start with the account overview, propose
+>   and confirm every change, research before building, build paused, follow
+>   the account's naming, keep clients apart), plus two prompts:
+>   `account_health_check` and `plan_new_campaign`.
 > - **Guardrails** (environment variables):
 >   - `GOOGLE_ADS_MCP_READ_ONLY=true` removes every tool that is not marked
 >     read-only, regardless of `tools_config.yaml` (kill switch).
+>   - `GOOGLE_ADS_MCP_ACCOUNT_IDS` (comma-separated, include the manager ID)
+>     refuses every call for other accounts.
+>   - `GOOGLE_ADS_MCP_BLOCKED_TOOLS` (comma-separated names, with or without
+>     namespace prefix) hides specific tools.
+>   - `GOOGLE_ADS_MCP_MAX_DAILY_BUDGET` is an absolute ceiling for any daily
+>     budget set through the server (account currency), on top of the
+>     per-change increase cap.
+>   - `add_keywords` reports exemptible policy violations and requests a
+>     policy exemption only with `request_policy_exemption=True`; BROAD match
+>     is refused on manual CPC.
+> - **More `account` tools** (read-only): `get_change_history` (what changed,
+>   when and by whom, last 30 days) and `find_locations` (location IDs by name).
 >   - `GOOGLE_ADS_MCP_MAX_INCREASE_PCT` (default `100`) caps how much a single
 >     call may raise a budget, bid or target CPA; `off` disables it. Decreases
 >     are never capped.

@@ -20,6 +20,7 @@ or changing a conversion-based bidding strategy.
 """
 
 from collections import defaultdict
+import hashlib
 from enum import Enum
 import json
 import re
@@ -770,4 +771,310 @@ def set_conversion_goals(
         change_items=change_items,
         success_message=f"Updated {len(operations)} conversion goals ({scope}).",
         error_prefix="Failed to update conversion goals",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Offline conversion uploads
+# ---------------------------------------------------------------------------
+
+MAX_UPLOAD_ROWS = 200
+_TIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_PHONE_RE = re.compile(r"^\+[1-9]\d{6,14}$")
+_CLICK_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{10,}$")
+
+
+class ConsentChoice(str, Enum):
+    """Whether the person consented to sending their data to Google
+    (required for EEA uploads)."""
+
+    GRANTED = "GRANTED"
+    DENIED = "DENIED"
+
+
+class OfflineConversionInput(BaseModel):
+    """One offline conversion, e.g. a qualified lead from the CRM."""
+
+    conversion_time: str = Field(
+        description="'YYYY-MM-DD HH:MM:SS+01:00' (with time zone offset)."
+    )
+    gclid: str | None = Field(default=None, description="Google click ID.")
+    gbraid: str | None = Field(default=None, description="iOS app click ID.")
+    wbraid: str | None = Field(default=None, description="iOS web click ID.")
+    email: str | None = Field(
+        default=None,
+        description="Email for enhanced conversions; hashed on the server.",
+    )
+    phone_number: str | None = Field(
+        default=None,
+        description="Phone in E.164 (+32...) format; hashed on the server.",
+    )
+    value: float | None = Field(default=None, description="Conversion value.")
+    currency: str | None = Field(
+        default=None, description="ISO currency, e.g. EUR (default: account)."
+    )
+    order_id: str | None = Field(
+        default=None, description="Optional unique ID to prevent duplicates."
+    )
+
+
+def normalize_email_hash(email: str) -> str:
+    """SHA-256 of the email, normalized the way Google Ads expects."""
+    cleaned = email.strip().lower()
+    if not _EMAIL_RE.match(cleaned):
+        raise ToolError("Error: An email address is not valid.")
+    local, domain = cleaned.rsplit("@", 1)
+    if domain in ("gmail.com", "googlemail.com"):
+        local = local.replace(".", "")
+    return hashlib.sha256(f"{local}@{domain}".encode()).hexdigest()
+
+
+def normalize_phone_hash(phone: str) -> str:
+    """SHA-256 of an E.164 phone number."""
+    cleaned = re.sub(r"[\s\-().]", "", phone.strip())
+    if not _PHONE_RE.match(cleaned):
+        raise ToolError(
+            "Error: Phone numbers must be in E.164 format with country code, "
+            "e.g. +32470123456."
+        )
+    return hashlib.sha256(cleaned.encode()).hexdigest()
+
+
+def _normalize_row(row: OfflineConversionInput | dict, index: int) -> dict:
+    if isinstance(row, dict):
+        row = OfflineConversionInput(**row)
+    when = row.conversion_time.strip().replace("T", " ")
+    if not _TIME_RE.match(when):
+        raise ToolError(
+            f"Error: Row {index}: conversion_time must look like "
+            "'2026-11-20 14:30:00+01:00'."
+        )
+    click_ids = {}
+    for key in ("gclid", "gbraid", "wbraid"):
+        value = (getattr(row, key) or "").strip()
+        if value:
+            if not _CLICK_ID_RE.match(value):
+                raise ToolError(f"Error: Row {index}: invalid {key}.")
+            click_ids[key] = value
+    if len(click_ids) > 1:
+        raise ToolError(f"Error: Row {index}: pass only one click ID.")
+    hashed_email = normalize_email_hash(row.email) if row.email else None
+    hashed_phone = (
+        normalize_phone_hash(row.phone_number) if row.phone_number else None
+    )
+    if not click_ids and not (hashed_email or hashed_phone):
+        raise ToolError(
+            f"Error: Row {index} needs a gclid/gbraid/wbraid or an email or "
+            "phone number."
+        )
+    if row.value is not None and float(row.value) < 0:
+        raise ToolError(f"Error: Row {index}: value must not be negative.")
+    return {
+        "time": when,
+        **click_ids,
+        "hashed_email": hashed_email,
+        "hashed_phone": hashed_phone,
+        "value": round(float(row.value), 2) if row.value is not None else None,
+        "currency": (row.currency or "").strip().upper() or None,
+        "order_id": (row.order_id or "").strip() or None,
+    }
+
+
+def _row_errors(ga_client: Any, status: Any) -> dict[int, str]:
+    """Maps row index to error message from a partial failure status."""
+    errors: dict[int, str] = {}
+    if not status or not status.code:
+        return errors
+    failure_type = type(ga_client.get_type("GoogleAdsFailure"))
+    for detail in status.details:
+        failure = failure_type.deserialize(detail.value)
+        for error in failure.errors:
+            index = next(
+                (
+                    element.index
+                    for element in error.location.field_path_elements
+                    if element.field_name == "conversions"
+                ),
+                -1,
+            )
+            errors[index] = error.message
+    if not errors:
+        errors[-1] = status.message
+    return errors
+
+
+def _describe_row(row: dict) -> str:
+    ids = []
+    for key in ("gclid", "gbraid", "wbraid"):
+        if row.get(key):
+            ids.append(f"{key} {row[key][:6]}…")
+    if row["hashed_email"]:
+        ids.append("email (hashed)")
+    if row["hashed_phone"]:
+        ids.append("phone (hashed)")
+    value = f", value {row['value']:.2f}" if row["value"] is not None else ""
+    return f"{row['time']}: {' + '.join(ids)}{value}"
+
+
+@conversions_mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False)
+)
+@mh.with_workflow_doc
+def upload_offline_conversions(
+    customer_id: str | int,
+    conversion_action_id: str,
+    conversions: list[OfflineConversionInput],
+    ad_user_data_consent: ConsentChoice,
+    login_customer_id: str | int | None = None,
+    validate_only: bool = True,
+    checksum: str | None = None,
+) -> str:
+    """Uploads offline conversions such as qualified or closed leads.
+
+    Use an UPLOAD_CLICKS conversion action (create one with
+    create_conversion_action). Each row needs a click ID (gclid, gbraid or
+    wbraid) and/or an email or phone number (enhanced conversions for
+    leads); emails and phone numbers are normalized and SHA-256 hashed on
+    the server and never sent in plain text. `ad_user_data_consent` must
+    reflect the consent you collected (required for EEA users). Use
+    order_id to avoid duplicates. Check results later with the search tool
+    on offline_conversion_upload_conversion_action_summary.
+    {workflow}
+    Args:
+        customer_id: Google Ads Customer ID (digits or hyphenated).
+        conversion_action_id: The numeric UPLOAD_CLICKS conversion action ID.
+        conversions: 1-200 conversions.
+        ad_user_data_consent: GRANTED or DENIED.
+        login_customer_id: Optional manager customer ID for the
+            login-customer-id header.
+        validate_only: True (default) proposes; False commits (needs checksum).
+        checksum: Checksum from the prior `validate_only=True` call.
+    """
+    cid = mh.require_customer_id(customer_id)
+    action_id = mh.require_simple_id(
+        conversion_action_id, "conversion_action_id"
+    )
+    consent = mh.enum_value(ad_user_data_consent, ConsentChoice, "consent")
+    if not conversions or len(conversions) > MAX_UPLOAD_ROWS:
+        raise ToolError(f"Error: Pass 1-{MAX_UPLOAD_ROWS} conversions.")
+    rows = [_normalize_row(r, i) for i, r in enumerate(conversions)]
+
+    ga_client = utils.get_googleads_client(login_customer_id=login_customer_id)
+    found = mh.search(
+        ga_client,
+        cid,
+        "SELECT conversion_action.name, conversion_action.type, "
+        "conversion_action.status, customer.currency_code "
+        f"FROM conversion_action WHERE conversion_action.id = {action_id}",
+    )
+    if not found:
+        raise ToolError(f"Error: Conversion action {action_id} was not found.")
+    action = found[0].conversion_action
+    if action.type_.name != "UPLOAD_CLICKS" or action.status.name != "ENABLED":
+        raise ToolError(
+            f"Error: '{action.name}' is a {action.type_.name} action "
+            f"({action.status.name}); uploads need an enabled UPLOAD_CLICKS "
+            "action."
+        )
+    currency = found[0].customer.currency_code
+    action_rn = f"customers/{cid}/conversionActions/{action_id}"
+    enums = ga_client.enums
+
+    request = ga_client.get_type("UploadClickConversionsRequest")
+    request.customer_id = cid
+    request.partial_failure = True
+    for row in rows:
+        conversion = ga_client.get_type("ClickConversion")
+        conversion.conversion_action = action_rn
+        conversion.conversion_date_time = row["time"]
+        for key in ("gclid", "gbraid", "wbraid"):
+            if row.get(key):
+                setattr(conversion, key, row[key])
+        if row["hashed_email"]:
+            identifier = ga_client.get_type("UserIdentifier")
+            identifier.hashed_email = row["hashed_email"]
+            conversion.user_identifiers.append(identifier)
+        if row["hashed_phone"]:
+            identifier = ga_client.get_type("UserIdentifier")
+            identifier.hashed_phone_number = row["hashed_phone"]
+            conversion.user_identifiers.append(identifier)
+        if row["value"] is not None:
+            conversion.conversion_value = row["value"]
+            conversion.currency_code = row["currency"] or currency
+        if row["order_id"]:
+            conversion.order_id = row["order_id"]
+        conversion.consent.ad_user_data = getattr(
+            enums.ConsentStatusEnum, consent
+        )
+        request.conversions.append(conversion)
+
+    service = utils.get_googleads_service_from_client(
+        ga_client, "ConversionUploadService"
+    )
+
+    def _format(errors: dict[int, str]) -> str:
+        return "\n- ".join(
+            f"row {i}: {message}" if i >= 0 else message
+            for i, message in sorted(errors.items())[:20]
+        )
+
+    def _validate() -> None:
+        request.validate_only = True
+        response = service.upload_click_conversions(request=request)
+        errors = _row_errors(ga_client, response.partial_failure_error)
+        if errors:
+            raise ToolError(
+                "Error: Google rejected conversions in the dry run:\n- "
+                + _format(errors)
+            )
+
+    def _commit() -> str:
+        request.validate_only = False
+        response = service.upload_click_conversions(request=request)
+        errors = _row_errors(ga_client, response.partial_failure_error)
+        accepted = len(rows) - len([i for i in errors if i >= 0])
+        message = (
+            f"Uploaded {accepted} of {len(rows)} conversions to "
+            f"'{action.name}'. Google processes uploads with a delay of a "
+            "few hours."
+        )
+        if errors:
+            message += "\nRejected:\n- " + _format(errors)
+        return message
+
+    total_value = sum(r["value"] or 0 for r in rows)
+    change_items = [
+        pac.ChangeItem(
+            "CREATE",
+            "Offline conversion upload",
+            f"{action.name} ({action_id})",
+            "Summary",
+            f"{len(rows)} conversions, total value {total_value:.2f} "
+            f"{currency}, consent {consent}",
+        )
+    ] + [
+        pac.ChangeItem(
+            "CREATE",
+            "Offline conversion",
+            action.name,
+            f"Row {i}",
+            _describe_row(r),
+        )
+        for i, r in enumerate(rows[:10])
+    ]
+    return pac.propose_and_confirm(
+        customer_id=cid,
+        validate_only=validate_only,
+        checksum=checksum,
+        operation_payload={
+            "tool": "upload_offline_conversions",
+            "conversion_action_id": action_id,
+            "consent": consent,
+            "rows": rows,
+        },
+        change_items=change_items,
+        validate_fn=_validate,
+        commit_fn=_commit,
+        error_prefix="Failed to upload conversions",
     )

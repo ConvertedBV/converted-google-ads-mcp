@@ -28,6 +28,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from google.ads.googleads.errors import GoogleAdsException
 from google.ads.googleads.util import get_nested_attr
 from mcp.types import ToolAnnotations
 
@@ -53,6 +54,7 @@ from ads_mcp.mutate_helpers import (
     to_micros as _to_micros,
     with_workflow_doc as _with_workflow_doc,
 )
+from ads_mcp.safety import enforce_budget_ceiling
 import ads_mcp.utils as utils
 
 campaign_management_mcp = FastMCP("campaign_management")
@@ -353,6 +355,7 @@ def update_campaign_budget(
         )
 
     _enforce_increase_guardrail(current_micros, new_micros, "daily budget")
+    enforce_budget_ceiling(new_micros)
 
     op = ga_client.get_type("CampaignBudgetOperation")
     op.update.resource_name = budget_rn
@@ -527,6 +530,7 @@ def add_keywords(
     match_type: KeywordMatchType,
     cpc_bid: float | None = None,
     status: EntityStatus = EntityStatus.ENABLED,
+    request_policy_exemption: bool = False,
     login_customer_id: str | int | None = None,
     validate_only: bool = True,
     checksum: str | None = None,
@@ -535,7 +539,12 @@ def add_keywords(
 
     All keywords in one call share the same match type, status and optional
     max CPC bid. The dry run surfaces policy and duplicate errors before
-    anything is created.
+    anything is created. When Google flags keywords for an exemptible policy
+    (common for health, finance or legal terms), the proposal names them;
+    after the user agrees, call again with `request_policy_exemption=True`
+    to ask Google for an exemption (Google still reviews it).
+    Non-exemptible violations are always refused. BROAD match is refused
+    for campaigns on manual CPC, where it wastes budget without smart bidding.
     {workflow}
     Args:
         customer_id: Google Ads Customer ID (digits or hyphenated).
@@ -544,6 +553,8 @@ def add_keywords(
         match_type: 'EXACT', 'PHRASE' or 'BROAD'.
         cpc_bid: Optional max CPC bid in the account currency.
         status: 'ENABLED' (default) or 'PAUSED'.
+        request_policy_exemption: Request a policy exemption for keywords
+            that hit an exemptible policy.
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
         validate_only: True (default) proposes; False commits (needs checksum).
@@ -558,10 +569,24 @@ def add_keywords(
     ad_group_rn = f"customers/{cid}/adGroups/{ad_group}"
 
     ga_client = utils.get_googleads_client(login_customer_id=login_customer_id)
+    if match_value == "BROAD":
+        rows = _search(
+            ga_client,
+            cid,
+            "SELECT campaign.bidding_strategy_type FROM ad_group "
+            f"WHERE ad_group.id = {ad_group}",
+        )
+        if rows and rows[0].campaign.bidding_strategy_type.name == "MANUAL_CPC":
+            raise ToolError(
+                "Error: BROAD match on a manual CPC campaign matches far too "
+                "widely without smart bidding. Use PHRASE or EXACT, or switch "
+                "the campaign to a conversion-based strategy first."
+            )
     match_enum = ga_client.enums.KeywordMatchTypeEnum
     status_enum = ga_client.enums.AdGroupCriterionStatusEnum
 
-    operations = []
+    request = ga_client.get_type("MutateAdGroupCriteriaRequest")
+    request.customer_id = cid
     change_items: list[pac.ChangeItem] = []
     for text in texts:
         op = ga_client.get_type("AdGroupCriterionOperation")
@@ -572,7 +597,7 @@ def add_keywords(
         criterion.keyword.match_type = getattr(match_enum, match_value)
         if bid_micros is not None:
             criterion.cpc_bid_micros = bid_micros
-        operations.append(op)
+        request.operations.append(op)
         change_items.extend(
             pac.build_change_items(
                 operation="CREATE",
@@ -590,14 +615,60 @@ def add_keywords(
                 },
             )
         )
+    if request_policy_exemption:
+        change_items.append(
+            pac.ChangeItem(
+                "CREATE",
+                "Policy exemption",
+                ad_group_rn,
+                "Requested",
+                "Yes, for keywords with an exemptible policy violation",
+            )
+        )
+    service = utils.get_googleads_service_from_client(
+        ga_client, "AdGroupCriterionService"
+    )
 
-    return _run_mutation(
-        ga_client=ga_client,
+    def _send(validate: bool) -> Any:
+        request.validate_only = validate
+        return service.mutate_ad_group_criteria(request=request)
+
+    def _validate() -> None:
+        try:
+            _send(True)
+        except GoogleAdsException as exc:
+            exemptible, blocking = policy_violations(exc)
+            if not exemptible or blocking:
+                raise
+            if not request_policy_exemption:
+                flagged = "; ".join(
+                    f"'{texts[i]}' ({', '.join(k.policy_name for k in keys)})"
+                    for i, keys in sorted(exemptible.items())
+                )
+                raise ToolError(
+                    "Error: These keywords hit an exemptible Google Ads "
+                    f"policy: {flagged}. If they are legitimate for this "
+                    "advertiser, ask the user and call again with "
+                    "request_policy_exemption=True; Google reviews the "
+                    "exemption."
+                ) from exc
+            for index, keys in exemptible.items():
+                request.operations[index].exempt_policy_violation_keys.extend(
+                    keys
+                )
+            _send(True)
+
+    def _commit() -> str:
+        _validate()
+        response = _send(False)
+        ids = [utils.extract_id(r.resource_name) for r in response.results]
+        return (
+            f"Successfully added {len(texts)} keywords to ad group "
+            f"{ad_group}. Affected IDs: {', '.join(ids)}"
+        )
+
+    return pac.propose_and_confirm(
         customer_id=cid,
-        service_name="AdGroupCriterionService",
-        request_type="MutateAdGroupCriteriaRequest",
-        mutate_method="mutate_ad_group_criteria",
-        operations=operations,
         validate_only=validate_only,
         checksum=checksum,
         operation_payload={
@@ -607,14 +678,42 @@ def add_keywords(
             "match_type": match_value,
             "status": status_value,
             "cpc_bid_micros": bid_micros,
+            "request_policy_exemption": request_policy_exemption,
         },
         change_items=change_items,
-        success_message=(
-            f"Successfully added {len(texts)} keywords to ad group "
-            f"{ad_group}."
-        ),
+        validate_fn=_validate,
+        commit_fn=_commit,
         error_prefix="Failed to add keywords",
     )
+
+
+def policy_violations(exc: GoogleAdsException) -> tuple[dict[int, list], bool]:
+    """Splits policy violations by operation index.
+
+    Returns ({operation index: [PolicyViolationKey]} for exemptible
+    violations, True if any error is not an exemptible policy violation).
+    """
+    exemptible: dict[int, list] = {}
+    blocking = False
+    for error in exc.failure.errors:
+        details = error.details.policy_violation_details
+        index = next(
+            (
+                element.index
+                for element in error.location.field_path_elements
+                if element.field_name == "operations"
+            ),
+            None,
+        )
+        if (
+            details.is_exemptible
+            and details.key.policy_name
+            and index is not None
+        ):
+            exemptible.setdefault(index, []).append(details.key)
+        else:
+            blocking = True
+    return exemptible, blocking
 
 
 _NEGATIVE_CONFIGS: dict[str, dict[str, str]] = {
