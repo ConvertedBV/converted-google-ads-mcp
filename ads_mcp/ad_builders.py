@@ -555,3 +555,113 @@ def fill_keyword(
     criterion.keyword.match_type = getattr(
         ga_client.enums.KeywordMatchTypeEnum, match_type
     )
+
+
+# ---------------------------------------------------------------------------
+# Radius (proximity) targeting
+# ---------------------------------------------------------------------------
+
+
+class RadiusUnit(str, Enum):
+    KILOMETERS = "KILOMETERS"
+    MILES = "MILES"
+
+
+class ProximityInput(BaseModel):
+    """A radius around coordinates or an address."""
+
+    radius: float = Field(description="Radius, e.g. 15.")
+    unit: RadiusUnit = Field(
+        default=RadiusUnit.KILOMETERS, description="KILOMETERS or MILES."
+    )
+    latitude: float | None = Field(
+        default=None, description="Latitude, e.g. 51.0543."
+    )
+    longitude: float | None = Field(
+        default=None, description="Longitude, e.g. 3.7174."
+    )
+    street_address: str | None = Field(
+        default=None, description="Street and number (instead of coordinates)."
+    )
+    postal_code: str | None = Field(default=None, description="Postal code.")
+    city_name: str | None = Field(default=None, description="City.")
+    country_code: str = Field(default="BE", description="ISO country code.")
+
+
+_MAX_RADIUS = {"KILOMETERS": 800.0, "MILES": 500.0}
+
+
+def normalize_proximities(
+    proximities: list["ProximityInput | dict"] | None,
+) -> list[dict[str, Any]]:
+    """Validates radius targets; returns normalized dicts."""
+    result: list[dict[str, Any]] = []
+    for item in proximities or []:
+        if isinstance(item, dict):
+            item = ProximityInput(**item)
+        unit = mh.enum_value(item.unit, RadiusUnit, "unit")
+        radius = float(item.radius)
+        if not 1 <= radius <= _MAX_RADIUS[unit]:
+            raise ToolError(
+                f"Error: A radius must be 1-{_MAX_RADIUS[unit]:g} "
+                f"{unit.lower()}."
+            )
+        has_point = item.latitude is not None or item.longitude is not None
+        address = {
+            "street_address": " ".join((item.street_address or "").split()),
+            "postal_code": (item.postal_code or "").strip(),
+            "city_name": " ".join((item.city_name or "").split()),
+            "country_code": item.country_code.strip().upper(),
+        }
+        has_address = any(
+            address[k] for k in ("street_address", "postal_code", "city_name")
+        )
+        if has_point == has_address:
+            raise ToolError(
+                "Error: Give each radius either 'latitude' and 'longitude' "
+                "or an address (street_address, postal_code, city_name)."
+            )
+        entry: dict[str, Any] = {"radius": radius, "unit": unit}
+        if has_point:
+            if item.latitude is None or item.longitude is None:
+                raise ToolError("Error: Pass both 'latitude' and 'longitude'.")
+            if not (
+                -90 <= item.latitude <= 90 and -180 <= item.longitude <= 180
+            ):
+                raise ToolError("Error: Coordinates are out of range.")
+            entry["latitude"] = round(float(item.latitude), 6)
+            entry["longitude"] = round(float(item.longitude), 6)
+        else:
+            if not re.fullmatch(r"[A-Z]{2}", address["country_code"]):
+                raise ToolError("Error: 'country_code' must be like BE or NL.")
+            entry["address"] = address
+        result.append(entry)
+    return result
+
+
+def fill_proximity(ga_client: Any, criterion: Any, entry: dict) -> None:
+    info = criterion.proximity
+    info.radius = entry["radius"]
+    info.radius_units = getattr(
+        ga_client.enums.ProximityRadiusUnitsEnum, entry["unit"]
+    )
+    if "latitude" in entry:
+        info.geo_point.latitude_in_micro_degrees = int(
+            round(entry["latitude"] * 1_000_000)
+        )
+        info.geo_point.longitude_in_micro_degrees = int(
+            round(entry["longitude"] * 1_000_000)
+        )
+    else:
+        for key, value in entry["address"].items():
+            if value:
+                setattr(info.address, key, value)
+
+
+def describe_proximity(entry: dict) -> str:
+    unit = "km" if entry["unit"] == "KILOMETERS" else "mi"
+    if "latitude" in entry:
+        where = f"{entry['latitude']}, {entry['longitude']}"
+    else:
+        where = ", ".join(v for v in entry["address"].values() if v)
+    return f"{entry['radius']:g} {unit} around {where}"

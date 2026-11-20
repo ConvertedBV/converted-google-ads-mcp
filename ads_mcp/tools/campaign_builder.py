@@ -234,6 +234,7 @@ def create_search_campaign(
     negative_keywords: list[str] | None = None,
     negative_match_type: ab.KeywordMatchType = ab.KeywordMatchType.PHRASE,
     ad_schedules: list[ab.AdScheduleInput] | None = None,
+    radius_targets: list[ab.ProximityInput] | None = None,
     search_partners: bool = False,
     location_targeting: LocationTargeting = LocationTargeting.PRESENCE,
     start_date: str | None = None,
@@ -267,7 +268,8 @@ def create_search_campaign(
         daily_budget: Average daily budget in the account currency.
         bidding_strategy: MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE,
             MAXIMIZE_CLICKS or MANUAL_CPC (then every ad group needs cpc_bid).
-        location_ids: Geo target constant IDs to target (at least one).
+        location_ids: Geo target constant IDs to target (may be empty when
+            `radius_targets` is given).
         ad_groups: 1-20 ad groups, each with keywords and 1-3 ads.
         language_ids: Language constant IDs; empty means all languages.
         excluded_location_ids: Geo target constant IDs to exclude.
@@ -279,6 +281,8 @@ def create_search_campaign(
         negative_match_type: Match type for campaign negatives (PHRASE).
         ad_schedules: Optional time windows, e.g. {{"day":
             "MONDAY_TO_FRIDAY", "start_time": "08:00", "end_time": "20:00"}}.
+        radius_targets: Optional radius around an address or coordinates,
+            e.g. {{"radius": 25, "city_name": "Gent", "postal_code": "9000"}}.
         search_partners: Also show on Google search partners (default off).
         location_targeting: PRESENCE (people in the location, default) or
             PRESENCE_OR_INTEREST.
@@ -301,7 +305,15 @@ def create_search_campaign(
     bidding = ab.resolve_bidding(
         bidding_strategy, target_cpa, target_roas_percent, max_cpc_limit
     )
-    locations = mh.require_ids(location_ids, "location_ids")
+    radii = ab.normalize_proximities(radius_targets)
+    locations = (
+        mh.require_ids(location_ids, "location_ids") if location_ids else []
+    )
+    if not (locations or radii):
+        raise ToolError(
+            "Error: Pass 'location_ids' and/or 'radius_targets' so the "
+            "campaign does not run worldwide."
+        )
     excluded = (
         mh.require_ids(excluded_location_ids, "excluded_location_ids")
         if excluded_location_ids
@@ -416,6 +428,7 @@ def create_search_campaign(
         schedules,
         geo_names,
         language_names,
+        radii,
     )
     operations.extend(targeting_ops)
     change_items.extend(targeting_items)
@@ -469,6 +482,7 @@ def create_search_campaign(
                 {**s, "start": list(s["start"]), "end": list(s["end"])}
                 for s in schedules
             ],
+            "radius_targets": radii,
             "negatives": negatives,
             "negative_match_type": negative_match,
             "search_partners": search_partners,

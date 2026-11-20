@@ -53,6 +53,40 @@ _TARGET_FIELDS = {
 }
 
 
+_LPURL_TOKENS = ("{lpurl", "{unescapedlpurl", "{escapedlpurl")
+
+
+def clean_tracking_template(value: str | None) -> str | None:
+    """Validates a tracking template; '' clears it."""
+    if value is None:
+        return None
+    text = value.strip()
+    if text and not (
+        any(token in text for token in _LPURL_TOKENS)
+        or text.startswith(("https://", "http://"))
+    ):
+        raise ToolError(
+            "Error: 'tracking_url_template' must contain {lpurl} (or "
+            "{unescapedlpurl} / {escapedlpurl}) or be a full http(s) URL. "
+            "Pass an empty string to remove it."
+        )
+    return text
+
+
+def clean_final_url_suffix(value: str | None) -> str | None:
+    """Validates a final URL suffix like utm_source=google; '' clears it."""
+    if value is None:
+        return None
+    text = value.strip().lstrip("?&")
+    if text and ("=" not in text or " " in text):
+        raise ToolError(
+            "Error: 'final_url_suffix' must be key=value pairs joined by &, "
+            "e.g. utm_source=google&utm_medium=cpc. Pass an empty string to "
+            "remove it."
+        )
+    return text
+
+
 # The API reports "Maximize clicks" as TARGET_SPEND.
 _FRIENDLY_STRATEGY = {"TARGET_SPEND": "MAXIMIZE_CLICKS (TARGET_SPEND)"}
 
@@ -328,11 +362,13 @@ def update_campaign_settings(
     end_date: str | None = None,
     search_partners: bool | None = None,
     display_network: bool | None = None,
+    tracking_url_template: str | None = None,
+    final_url_suffix: str | None = None,
     login_customer_id: str | int | None = None,
     validate_only: bool = True,
     checksum: str | None = None,
 ) -> str:
-    """Changes a campaign's name, start/end date or network settings.
+    """Changes a campaign's name, dates, networks or tracking.
 
     Pass only the settings to change. Dates are YYYY-MM-DD in the account
     time zone; the campaign starts at 00:00:00 and ends at 23:59:59.
@@ -345,6 +381,9 @@ def update_campaign_settings(
         end_date: New end date.
         search_partners: Show ads on Google search partners.
         display_network: Show Search ads on the Display Network.
+        tracking_url_template: Campaign tracking template, e.g.
+            {{lpurl}}?src=ads, or '' to remove (falls back to the account).
+        final_url_suffix: e.g. utm_campaign=brand, or '' to remove.
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
         validate_only: True (default) proposes; False commits (needs checksum).
@@ -355,9 +394,19 @@ def update_campaign_settings(
     start = mh.require_date(start_date, "start_date")
     end = mh.require_date(end_date, "end_date")
     clean_name = " ".join((name or "").split()) or None
+    template = clean_tracking_template(tracking_url_template)
+    suffix = clean_final_url_suffix(final_url_suffix)
     if not any(
         v is not None
-        for v in (clean_name, start, end, search_partners, display_network)
+        for v in (
+            clean_name,
+            start,
+            end,
+            search_partners,
+            display_network,
+            template,
+            suffix,
+        )
     ):
         raise ToolError("Error: Pass at least one setting to change.")
 
@@ -368,7 +417,8 @@ def update_campaign_settings(
         "SELECT campaign.name, campaign.start_date_time, "
         "campaign.end_date_time, "
         "campaign.network_settings.target_partner_search_network, "
-        "campaign.network_settings.target_content_network "
+        "campaign.network_settings.target_content_network, "
+        "campaign.tracking_url_template, campaign.final_url_suffix "
         f"FROM campaign WHERE campaign.id = {campaign_id}",
     )
     if not rows:
@@ -409,13 +459,25 @@ def update_campaign_settings(
             display_network,
             network.target_content_network,
         ),
+        (
+            "Tracking template",
+            "tracking_url_template",
+            template,
+            current.tracking_url_template or "(none)",
+        ),
+        (
+            "Final URL suffix",
+            "final_url_suffix",
+            suffix,
+            current.final_url_suffix or "(none)",
+        ),
     ]
     for label, path, value, old in updates:
         if value is None:
             continue
         _set_path(op.update, path, value)
         op.update_mask.paths.append(path)
-        fields[label] = value
+        fields[label] = "(none)" if value == "" else value
         original[label] = old
 
     change_items = pac.build_change_items(
@@ -442,6 +504,8 @@ def update_campaign_settings(
             "end_date": end,
             "search_partners": search_partners,
             "display_network": display_network,
+            "tracking_url_template": template,
+            "final_url_suffix": suffix,
         },
         change_items=change_items,
         success_message=f"Successfully updated campaign {campaign_id}.",
@@ -460,11 +524,12 @@ def add_campaign_targeting(
     excluded_location_ids: list[str] | None = None,
     language_ids: list[str] | None = None,
     ad_schedules: list[ab.AdScheduleInput] | None = None,
+    radius_targets: list[ab.ProximityInput] | None = None,
     login_customer_id: str | int | None = None,
     validate_only: bool = True,
     checksum: str | None = None,
 ) -> str:
-    """Adds location, language and ad schedule targeting to a campaign.
+    """Adds location, radius, language and ad schedule targeting.
 
     Location IDs are geo target constant IDs (e.g. 2056 = Belgium, 1001021
     = Ghent) and language IDs are language constant IDs (1010 = Dutch, 1002
@@ -481,6 +546,9 @@ def add_campaign_targeting(
         language_ids: Language constant IDs to target.
         ad_schedules: Time windows, e.g. {{"day": "MONDAY_TO_FRIDAY",
             "start_time": "08:00", "end_time": "20:00"}}.
+        radius_targets: Radius around a point or address, e.g.
+            {{"radius": 20, "city_name": "Gent", "postal_code": "9000"}}
+            or {{"radius": 15, "latitude": 51.05, "longitude": 3.72}}.
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
         validate_only: True (default) proposes; False commits (needs checksum).
@@ -500,7 +568,8 @@ def add_campaign_targeting(
         mh.require_ids(language_ids, "language_ids") if language_ids else []
     )
     schedules = ab.normalize_ad_schedules(ad_schedules)
-    if not (locations or excluded or languages or schedules):
+    radii = ab.normalize_proximities(radius_targets)
+    if not (locations or excluded or languages or schedules or radii):
         raise ToolError("Error: Pass at least one targeting criterion.")
 
     ga_client = utils.get_googleads_client(login_customer_id=login_customer_id)
@@ -519,6 +588,7 @@ def add_campaign_targeting(
         schedules,
         geo_names,
         language_names,
+        radii,
     )
     return mh.run_mutation(
         ga_client=ga_client,
@@ -539,6 +609,7 @@ def add_campaign_targeting(
                 {**s, "start": list(s["start"]), "end": list(s["end"])}
                 for s in schedules
             ],
+            "radius_targets": radii,
         },
         change_items=change_items,
         success_message=(
@@ -558,6 +629,7 @@ def build_targeting_operations(
     schedules: list[dict[str, Any]],
     geo_names: dict[str, str],
     language_names: dict[str, str],
+    proximities: list[dict[str, Any]] | None = None,
 ) -> tuple[list[Any], list[pac.ChangeItem]]:
     """Builds CampaignCriterion create operations wrapped in MutateOperation.
 
@@ -618,6 +690,17 @@ def build_targeting_operations(
                 campaign_rn,
                 "Window",
                 ab.describe_schedule(schedule),
+            )
+        )
+    for entry in proximities or []:
+        ab.fill_proximity(ga_client, _new(), entry)
+        change_items.append(
+            pac.ChangeItem(
+                "CREATE",
+                "Radius target",
+                campaign_rn,
+                "Radius",
+                ab.describe_proximity(entry),
             )
         )
     return operations, change_items

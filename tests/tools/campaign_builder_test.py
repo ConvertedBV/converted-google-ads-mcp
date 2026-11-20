@@ -174,7 +174,7 @@ class TestCreateSearchCampaign(MutateToolTestCase):
             "Ad group names must be unique": {
                 "ad_groups": [_group(), _group()]
             },
-            "'location_ids' must contain at least one ID": {"location_ids": []},
+            "does not run worldwide": {"location_ids": []},
             "1-3 responsive search ads": {
                 "ad_groups": [_group(ads=[_ad(), _ad(), _ad(), _ad()])]
             },
@@ -188,6 +188,26 @@ class TestCreateSearchCampaign(MutateToolTestCase):
                 with self.assertRaisesRegex(ToolError, message):
                     cb.create_search_campaign(**self._kwargs(**override))
         self.service("GoogleAdsService").mutate.assert_not_called()
+
+    def test_radius_targets(self):
+        self.search_results(*self._lookups())
+        proposal = self.propose(
+            cb.create_search_campaign,
+            **self._kwargs(
+                radius_targets=[
+                    {"radius": 25, "city_name": "Gent", "postal_code": "9000"}
+                ]
+            ),
+        )
+        ops = self.request("GoogleAdsService", "mutate").mutate_operations
+        radius = [
+            o.campaign_criterion_operation.create.proximity
+            for o in ops
+            if o.campaign_criterion_operation.create.proximity.radius
+        ]
+        self.assertEqual(len(radius), 1)
+        self.assertEqual(radius[0].address.postal_code, "9000")
+        self.assertIn("25 km around 9000, Gent, BE", str(proposal))
 
 
 class TestCreateAdGroupAndAd(MutateToolTestCase):

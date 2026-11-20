@@ -70,14 +70,23 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   exclusions (periods with broken tracking) and seasonality adjustments (short
 >   events with an expected conversion rate change), per account, channel or
 >   campaign.
+> - Account setup (in `campaign_management`): `update_account_settings`
+>   (auto-tagging, account tracking template and final URL suffix),
+>   `manage_portfolio_bidding_strategy` (create a portfolio strategy,
+>   including target impression share, and move campaigns onto it, with the
+>   target guardrail per campaign) and `manage_shared_budget` (create a
+>   shared budget and move campaigns onto it, capped against their current
+>   combined budgets). Tracking template and suffix per campaign live in
+>   `update_campaign_settings`; radius targeting (around an address or
+>   coordinates) in `add_campaign_targeting` and `create_search_campaign`.
 > - **`account` tool** (read-only): `get_account_overview`, the starting point
 >   for an account: settings, per-campaign status, spend, conversions, CPA,
 >   ROAS and impression share lost to budget, plus flags (auto-tagging off,
 >   budget-limited, spend without conversions, limited campaigns, disapproved
 >   ads). `create_performance_max_campaign` also accepts a Merchant Center ID
 >   (and feed label) for retail campaigns.
-> - `create_extension_asset` (in `campaign_management`): call, promotion and
->   price assets, created and linked to the account, a campaign or an ad group
+> - `create_extension_asset` (in `campaign_management`): call, promotion,
+>   price and lead form assets, created and linked to the account, a campaign or an ad group
 >   in one atomic step.
 > - **`keyword_planning` tools** (read-only, so also available in read-only mode):
 >   `generate_keyword_ideas` (from keywords, a URL or a site), `get_keyword_metrics`
