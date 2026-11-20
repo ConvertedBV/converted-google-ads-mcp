@@ -109,6 +109,7 @@ class TestToolsMounting(unittest.IsolatedAsyncioTestCase):
             "audiences_manage_audience_targeting",
             "audiences_manage_demographic_exclusions",
             "campaign_management_manage_account_exclusions",
+            "campaign_management_manage_bidding_adjustments",
             "experiments_create_experiment",
             "experiments_manage_experiment",
         ):

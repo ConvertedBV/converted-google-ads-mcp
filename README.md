@@ -59,6 +59,10 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   to edit with the other tools) and `manage_experiment` (schedule, end, promote).
 > - `manage_account_exclusions` (in `campaign_management`): account-wide
 >   placement, YouTube channel and content label exclusions.
+> - `manage_bidding_adjustments` (in `campaign_management`): smart bidding data
+>   exclusions (periods with broken tracking) and seasonality adjustments (short
+>   events with an expected conversion rate change), per account, channel or
+>   campaign.
 > - **`keyword_planning` tools** (read-only, so also available in read-only mode):
 >   `generate_keyword_ideas` (from keywords, a URL or a site), `get_keyword_metrics`
 >   (volume, competition, top-of-page bids) and `forecast_keywords` (clicks, cost,
