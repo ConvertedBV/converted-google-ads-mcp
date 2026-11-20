@@ -63,6 +63,9 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   exclusions (periods with broken tracking) and seasonality adjustments (short
 >   events with an expected conversion rate change), per account, channel or
 >   campaign.
+> - `create_extension_asset` (in `campaign_management`): call, promotion and
+>   price assets, created and linked to the account, a campaign or an ad group
+>   in one atomic step.
 > - **`keyword_planning` tools** (read-only, so also available in read-only mode):
 >   `generate_keyword_ideas` (from keywords, a URL or a site), `get_keyword_metrics`
 >   (volume, competition, top-of-page bids) and `forecast_keywords` (clicks, cost,

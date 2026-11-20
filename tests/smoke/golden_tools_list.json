@@ -3079,6 +3079,333 @@
         }
       },
       "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Creates a call, promotion or price asset and links it in one step.\n\nPass the matching input (`call`, `promotion` or `price`) and where to\nlink it: CUSTOMER (whole account), CAMPAIGN or AD_GROUP with\n`parent_id`, or NONE to only create it (link later with link_assets).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "call": {
+            "anyOf": [
+              {
+                "properties": {
+                  "country_code": {
+                    "default": "BE",
+                    "description": "ISO country code.",
+                    "type": "string"
+                  },
+                  "phone_number": {
+                    "description": "Phone number as dialled, e.g. 09 123 45 67.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "phone_number"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "{\"phone_number\", \"country_code\"} for CALL."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "extension_type": {
+            "description": "CALL, PROMOTION or PRICE.",
+            "enum": [
+              "CALL",
+              "PROMOTION",
+              "PRICE"
+            ],
+            "type": "string"
+          },
+          "link_level": {
+            "default": "CAMPAIGN",
+            "description": "CAMPAIGN (default), AD_GROUP, CUSTOMER or NONE.",
+            "enum": [
+              "CUSTOMER",
+              "CAMPAIGN",
+              "AD_GROUP",
+              "NONE"
+            ],
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Campaign or ad group ID for CAMPAIGN / AD_GROUP."
+          },
+          "price": {
+            "anyOf": [
+              {
+                "properties": {
+                  "language_code": {
+                    "default": "nl",
+                    "description": "e.g. nl or fr.",
+                    "type": "string"
+                  },
+                  "offerings": {
+                    "description": "3-8 offerings.",
+                    "items": {
+                      "properties": {
+                        "description": {
+                          "description": "Short description, max 25 chars.",
+                          "type": "string"
+                        },
+                        "final_url": {
+                          "description": "Landing page for this offering.",
+                          "type": "string"
+                        },
+                        "header": {
+                          "description": "Service or product, max 25 chars.",
+                          "type": "string"
+                        },
+                        "price": {
+                          "description": "Price in the account currency.",
+                          "type": "number"
+                        },
+                        "unit": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Optional PER_HOUR, PER_DAY, PER_WEEK, PER_MONTH, PER_YEAR."
+                        }
+                      },
+                      "required": [
+                        "header",
+                        "description",
+                        "price",
+                        "final_url"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "price_qualifier": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Optional FROM, UP_TO or AVERAGE."
+                  },
+                  "type": {
+                    "default": "SERVICES",
+                    "description": "SERVICES, SERVICE_CATEGORIES, SERVICE_TIERS, BRANDS, PRODUCT_CATEGORIES, PRODUCT_TIERS, EVENTS, LOCATIONS or NEIGHBORHOODS.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "offerings"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Price details with 3-8 offerings for PRICE."
+          },
+          "promotion": {
+            "anyOf": [
+              {
+                "properties": {
+                  "end_date": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "YYYY-MM-DD."
+                  },
+                  "final_url": {
+                    "description": "Landing page of the promotion.",
+                    "type": "string"
+                  },
+                  "language_code": {
+                    "default": "nl",
+                    "description": "e.g. nl or fr.",
+                    "type": "string"
+                  },
+                  "money_amount_off": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Discount amount in the account currency."
+                  },
+                  "orders_over_amount": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Optional minimum order amount."
+                  },
+                  "percent_off": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Discount percentage, e.g. 10 for 10%."
+                  },
+                  "promotion_code": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Optional code."
+                  },
+                  "promotion_target": {
+                    "description": "What is on promotion, max 20 chars.",
+                    "type": "string"
+                  },
+                  "start_date": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "YYYY-MM-DD."
+                  },
+                  "up_to": {
+                    "default": false,
+                    "description": "Show as 'up to'.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "promotion_target",
+                  "final_url"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Promotion details for PROMOTION (percent_off or\nmoney_amount_off)."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "extension_type"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_create_extension_asset",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Create Extension Asset"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
         "destructiveHint": true,
         "readOnlyHint": false
       },
