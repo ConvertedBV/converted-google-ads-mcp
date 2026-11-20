@@ -104,6 +104,8 @@ class TestToolsMounting(unittest.IsolatedAsyncioTestCase):
             "campaign_builder_create_performance_max_campaign",
             "campaign_builder_create_asset_group",
             "campaign_builder_create_demand_gen_campaign",
+            "campaign_builder_create_display_campaign",
+            "campaign_builder_create_shopping_campaign",
             "campaign_builder_create_image_assets",
             "audiences_create_remarketing_list",
             "audiences_suggest_audiences",

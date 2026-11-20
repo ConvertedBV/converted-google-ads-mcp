@@ -41,7 +41,9 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >
 >   | `create_performance_max_campaign` | Budget, campaign (brand guidelines: business name and logo at campaign level), targeting and 1-10 asset groups with texts, images, YouTube videos and search theme / audience signals. |
 >   | `create_asset_group` | A complete asset group in an existing PMax campaign. |
->   | `create_demand_gen_campaign` | Budget, campaign and 1-10 ad groups with their own locations, languages, optional audience and multi-asset image ads. |
+>   | `create_demand_gen_campaign` | Budget, campaign and 1-10 ad groups with their own locations, languages, optional audience, multi-asset image ads and YouTube video ads. |
+>   | `create_display_campaign` | Budget, campaign, targeting and 1-10 Display ad groups with interests, user lists, placements, topics and responsive display ads. |
+>   | `create_shopping_campaign` | Standard Shopping: budget, campaign linked to Merchant Center (feed label, priority) and one product ad group bidding on all products. |
 >   | `create_image_assets` | Upload images from public https URLs, optionally checked for a role (landscape, square, portrait, logo). |
 >
 >   Images can be existing asset IDs or https URLs. URLs are fetched server-side
