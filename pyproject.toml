@@ -1,17 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "google-ads-mcp"
-version = "0.0.1"
-requires-python = ">=3.10"
+version = "0.0.6"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
-    "google-ads>=31.2.0",
-    "mcp[cli]>=1.2.0",
-    "fastmcp>=3.2.0"
+    # 35.1.0 ships v26 of the Google Ads API (pinned in ads_mcp/utils.py).
+    "google-ads>=35.1.0,<36",
+    "mcp[cli]>=2.0.0,<3",
+    "fastmcp[tasks]>=4.0.6,<5"
 ]
 
 description = "MCP Server for Google Ads, depends on Google Ads API."
 readme = "README.md"
-authors = [{ name = "Dean Lukies", email = "lukiesd@users.noreply.github.com" }]
+authors = [
+    { name = "Dean Lukies", email = "lukiesd@users.noreply.github.com" },
+    { name = "Mattia Tommasone", email = "Raibaz@users.noreply.github.com" },
+    { name = "Ben Karl", email = "benrkarl@users.noreply.github.com" },
+]
 keywords = ["Google Ads", "Google Ads API", "MCP"]
 classifiers = [
     "Intended Audience :: Developers",

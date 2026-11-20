@@ -14,6 +14,8 @@
 
 """Entry point for the MCP server."""
 
+import os
+
 from ads_mcp.coordinator import mcp
 
 # The following imports are necessary to register the resources with the `mcp`
@@ -29,7 +31,9 @@ from ads_mcp.resources import (
 )  # noqa: F401
 
 
-import os
+def _env_flag(name: str) -> bool:
+    """Returns True when the environment variable holds a truthy value."""
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
 
 
 def run_server() -> None:
@@ -38,13 +42,19 @@ def run_server() -> None:
     port = int(os.environ.get("PORT", "8080"))
 
     if _CLIENT_ID and _CLIENT_SECRET:
-        mcp.run(
-            transport="streamable-http",
-            port=port,
-            host="0.0.0.0",
-            stateless_http=True,
-            uvicorn_config={"access_log": False},
-        )
+        run_kwargs = {
+            "transport": "streamable-http",
+            "port": port,
+            "host": "0.0.0.0",
+            "uvicorn_config": {"access_log": False},
+        }
+        # Serverless hosts (e.g. Vercel) route requests to instances that do
+        # not share in-memory MCP sessions, so they must opt into stateless
+        # HTTP. Long-running hosts keep the stateful default, which supports
+        # both modern and legacy Streamable HTTP clients.
+        if _env_flag("GOOGLE_ADS_MCP_STATELESS_HTTP"):
+            run_kwargs["stateless_http"] = True
+        mcp.run(**run_kwargs)
     else:
         mcp.run()
 

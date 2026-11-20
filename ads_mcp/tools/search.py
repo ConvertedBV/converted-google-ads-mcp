@@ -21,18 +21,20 @@ from mcp.types import ToolAnnotations
 
 search_mcp = FastMCP("search")
 
+from ads_mcp.audit import redact_gaql_text
 import ads_mcp.utils as utils
 from google.ads.googleads.errors import GoogleAdsException
 from fastmcp.exceptions import ToolError
 
 
 def search(
-    customer_id: str,
+    customer_id: str | int,
     fields: List[str],
     resource: str,
     conditions: List[str] = [],
     orderings: List[str] = [],
     limit: int | None = None,
+    login_customer_id: str | int | None = None,
 ) -> List[Dict[str, Any]]:
     """Fetches data from the Google Ads API using the search method
 
@@ -43,10 +45,15 @@ def search(
         conditions: List of conditions to filter the data, combined using AND clauses
         orderings: How the data is ordered
         limit: The maximum number of rows to return
+        login_customer_id: Optional manager customer ID to use as the login-customer-id header.
 
     """
 
-    ga_service = utils.get_googleads_service("GoogleAdsService")
+    customer_id = utils.clean_customer_id(customer_id)
+
+    ga_service = utils.get_googleads_service(
+        "GoogleAdsService", login_customer_id=login_customer_id
+    )
 
     query_parts = [f"SELECT {','.join(fields)} FROM {resource}"]
 
@@ -62,7 +69,7 @@ def search(
     query_parts.append(" PARAMETERS omit_unselected_resource_names=true")
 
     query = "".join(query_parts)
-    utils.logger.info(f"ads_mcp.search query {query}")
+    utils.logger.debug("ads_mcp.search query %s", redact_gaql_text(query))
 
     try:
         query_result = ga_service.search_stream(
@@ -77,13 +84,7 @@ def search(
                 )
         return final_output
     except GoogleAdsException as ex:
-        error_msgs = [
-            f"Google Ads API Error: {error.message}"
-            for error in ex.failure.errors
-        ]
-        raise ToolError(
-            f"Request ID: {ex.request_id}\n" + "\n".join(error_msgs)
-        )
+        raise ToolError(utils.format_google_ads_error(ex)) from ex
 
 
 def _search_tool_description() -> str:
@@ -117,6 +118,13 @@ def _search_tool_description() -> str:
 ### Hints for Dates
     All dates should be in the form YYYY-MM-DD and must include the dashes (-)
     Date ranges must be finite and must include a start and end date
+
+### Hints for historical metrics
+    Status fields (campaign.status, ad_group.status, ad_group_criterion.status, ad_group_ad.status) hold the current status, not the status during the date range
+    When selecting metrics over a date range, do not filter on status (e.g. campaign.status = 'ENABLED' or campaign.status != 'REMOVED')
+    Entities paused or removed during the range would drop out and totals would understate cost and conversions
+    To leave out removed entities with no activity, remove rows with zero impressions after the query instead
+    Filter on status only when asking what is live now
 
 ### Hints for limits
     Requests to resource change_event must specify a LIMIT of less than or equal to 10000

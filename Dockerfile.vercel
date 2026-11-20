@@ -4,6 +4,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
+ENV FASTMCP_CHECK_FOR_UPDATES=off
+ENV FASTMCP_SHOW_SERVER_BANNER=false
+# Vercel instances do not share in-memory MCP sessions.
+ENV GOOGLE_ADS_MCP_STATELESS_HTTP=true
+
 COPY . .
 
 RUN uv pip install --system ".[redis]"

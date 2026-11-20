@@ -28,7 +28,28 @@ DEFAULT_CONFIG_FILE = "tools_config.yaml"
 CONFIG_PATH_ENV_VAR = "GOOGLE_ADS_MCP_TOOLS_CONFIG"
 
 # Default categories that are supported by the server
-ALL_CATEGORIES = ["customers", "search", "metadata"]
+ALL_CATEGORIES = [
+    "customers",
+    "search",
+    "metadata",
+    "labels",
+    "assets",
+    "campaign_management",
+]
+
+# When truthy, every tool that is not annotated readOnlyHint=True is removed
+# at startup, regardless of tools_config.yaml. Useful as a kill switch or for
+# deployments that should only ever read.
+READ_ONLY_ENV_VAR = "GOOGLE_ADS_MCP_READ_ONLY"
+
+
+def is_read_only_mode() -> bool:
+    """Returns True when the server must expose read-only tools only."""
+    return os.environ.get(READ_ONLY_ENV_VAR, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 
 class ToolsConfig:

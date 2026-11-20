@@ -23,7 +23,15 @@ import os
 from typing import Any
 from fastmcp import FastMCP
 from fastmcp.server.auth.providers.google import GoogleProvider
-from ads_mcp.auth_storage import create_client_storage
+from fastmcp_tasks import TasksExtension
+from mcp import types as mcp_types
+from mcp.server.subscriptions import InMemorySubscriptionBus, ListenHandler
+from ads_mcp.audit import AuditMiddleware
+from ads_mcp.auth_storage import (
+    create_audit_storage,
+    create_client_storage,
+    get_audit_storage_ttl,
+)
 
 _CLIENT_ID = os.environ.get("GOOGLE_ADS_MCP_OAUTH_CLIENT_ID")
 _CLIENT_SECRET = os.environ.get("GOOGLE_ADS_MCP_OAUTH_CLIENT_SECRET")
@@ -53,10 +61,48 @@ if _CLIENT_ID and _CLIENT_SECRET:
 else:
     mcp = FastMCP("Google Ads Server")
 
+mcp.add_extension(TasksExtension())
+mcp.add_middleware(
+    AuditMiddleware(
+        storage=create_audit_storage(),
+        ttl=get_audit_storage_ttl(),
+        server=mcp,
+    )
+)
+
+
+def ensure_subscriptions_listen(server: FastMCP) -> bool:
+    """Register the MCP 2026 subscription stream when FastMCP omits it.
+
+    FastMCP 4 (including 4.0.3) builds its low-level ``Server`` without the SDK's
+    ``on_subscriptions_listen`` handler. Some modern clients open that stream
+    while loading tools; without it, the SDK returns HTTP 404 / method not
+    found, which mcp-go reports misleadingly as a missing session.
+
+    The guard preserves a native FastMCP implementation once one is shipped.
+
+    Returns:
+        True when the compatibility handler was installed, otherwise False.
+    """
+    low_level_server = server._mcp_server
+    if "subscriptions/listen" in low_level_server._request_handlers:
+        return False
+
+    subscription_bus = InMemorySubscriptionBus()
+    low_level_server.add_request_handler(
+        "subscriptions/listen",
+        mcp_types.SubscriptionsListenRequestParams,
+        ListenHandler(subscription_bus),
+    )
+    return True
+
+
+ensure_subscriptions_listen(mcp)
+
 
 def initialize_and_mount_tools(parent_mcp: FastMCP) -> None:
     """Loads the tools configuration and dynamically mounts the tools sub-servers."""
-    from ads_mcp.config import ToolsConfig
+    from ads_mcp.config import ToolsConfig, is_read_only_mode
     import importlib
     import pkgutil
     import ads_mcp.tools as tools_pkg
@@ -74,26 +120,46 @@ def initialize_and_mount_tools(parent_mcp: FastMCP) -> None:
             attr_val = getattr(module, attr_name)
             if isinstance(attr_val, FastMCP):
                 category = attr_val.name
+                if (
+                    category in sub_servers
+                    and sub_servers[category] is not attr_val
+                ):
+                    raise ValueError(
+                        f"Conflicting FastMCP sub-servers registered for category '{category}'."
+                    )
                 sub_servers[category] = attr_val
 
     config = ToolsConfig.load()
+    read_only = is_read_only_mode()
 
     for category, sub_mcp in sub_servers.items():
         if not config.is_namespace_enabled(category):
             continue
 
         # Filter disabled tools inside the sub-server before mounting
-        tool_names = []
-        for key, val in sub_mcp.local_provider._components.items():
-            if key.startswith("tool:"):
-                tool_names.append(val.name)
+        tools = [
+            val
+            for key, val in sub_mcp.local_provider._components.items()
+            if key.startswith("tool:")
+        ]
 
-        for name in tool_names:
-            if not config.is_tool_enabled(category, name):
-                sub_mcp.local_provider.remove_tool(name)
+        for tool in tools:
+            annotations = getattr(tool, "annotations", None)
+            is_read_only_tool = bool(
+                annotations is not None and annotations.read_only_hint
+            )
+            if not config.is_tool_enabled(category, tool.name) or (
+                read_only and not is_read_only_tool
+            ):
+                sub_mcp.local_provider.remove_tool(tool.name)
 
         # Determine prefix/namespace
         namespace_prefix = config.get_namespace_prefix(category)
+
+        # Instrument background-task tools on this sub-server for worker auditing
+        for mw in parent_mcp.middleware:
+            if isinstance(mw, AuditMiddleware):
+                mw.instrument_server(sub_mcp, namespace=namespace_prefix)
 
         # Mount the sub-server
         parent_mcp.mount(sub_mcp, namespace=namespace_prefix or None)

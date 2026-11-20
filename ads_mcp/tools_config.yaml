@@ -7,3 +7,7 @@ namespaces:
   customers: true
   search: true
   metadata: true
+  labels: true
+  assets: true
+  # Converted: status, budget, bid and keyword management (propose & confirm).
+  campaign_management: true
