@@ -98,6 +98,61 @@ class TestCampaignBidding(MutateToolTestCase):
         op = self.request("CampaignService", "mutate_campaigns").operations[0]
         self.assertEqual(op.update.maximize_conversion_value.target_roas, 4.0)
 
+    def test_target_roas_decrease_guardrail(self):
+        self.search_results(
+            [
+                self._campaign(
+                    "MAXIMIZE_CONVERSION_VALUE",
+                    **{"campaign.maximize_conversion_value.target_roas": 4.0},
+                )
+            ]
+        )
+        with self.assertRaisesRegex(
+            ToolError, r"Lowering the target ROAS by \d+%"
+        ):
+            cs.update_campaign_bidding(
+                customer_id=CID, campaign_id="111", target_roas_percent=150
+            )
+
+    def test_target_roas_small_decrease_allowed(self):
+        self.search_results(
+            [
+                self._campaign(
+                    "MAXIMIZE_CONVERSION_VALUE",
+                    **{"campaign.maximize_conversion_value.target_roas": 4.0},
+                )
+            ]
+        )
+        proposal = self.propose(
+            cs.update_campaign_bidding,
+            customer_id=CID,
+            campaign_id="111",
+            target_roas_percent=300,
+        )
+        self.assertEqual(
+            self.items(proposal)["Target ROAS"]["original_value_readable"],
+            "400%",
+        )
+
+    def test_max_cpc_limit_guardrail(self):
+        self.search_results(
+            [
+                self._campaign(
+                    "TARGET_SPEND",
+                    **{
+                        "campaign.target_spend.cpc_bid_ceiling_micros": 1_000_000
+                    },
+                )
+            ]
+        )
+        with self.assertRaisesRegex(ToolError, "max CPC limit.*safety limit"):
+            cs.update_campaign_bidding(
+                customer_id=CID,
+                campaign_id="111",
+                bidding_strategy="MAXIMIZE_CLICKS",
+                max_cpc_limit=5,
+            )
+
     def test_wrong_target_kind(self):
         self.search_results([self._campaign("MAXIMIZE_CONVERSIONS")])
         with self.assertRaisesRegex(ToolError, "has no target ROAS"):
@@ -343,6 +398,30 @@ class TestBidModifiers(MutateToolTestCase):
         self.assertAlmostEqual(ops[0].update.bid_modifier, 1.2, places=5)
         self.assertEqual(list(ops[0].update_mask.paths), ["bid_modifier"])
         self.assertAlmostEqual(ops[1].update.bid_modifier, 0.9, places=5)
+
+    def test_modifier_increase_guardrail(self):
+        self.search_results(
+            [
+                self.row(
+                    {
+                        "campaign_criterion.resource_name": f"customers/{CID}/campaignCriteria/111~30001",
+                        "campaign_criterion.criterion_id": 30001,
+                        "campaign_criterion.type_": self.enums.CriterionTypeEnum.DEVICE,
+                        "campaign_criterion.device.type_": self.enums.DeviceEnum.MOBILE,
+                        "campaign_criterion.bid_modifier": 1.2,
+                        "campaign_criterion.display_name": "Mobile",
+                    }
+                )
+            ]
+        )
+        with self.assertRaisesRegex(
+            ToolError, "bid modifier of Mobile.*safety"
+        ):
+            cs.update_bid_modifiers(
+                customer_id=CID,
+                campaign_id="111",
+                device_bid_modifiers={"MOBILE": 3},
+            )
 
     def test_invalid_modifier(self):
         with self.assertRaisesRegex(ToolError, "0.1 and 10"):

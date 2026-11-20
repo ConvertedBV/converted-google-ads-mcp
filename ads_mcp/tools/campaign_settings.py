@@ -173,6 +173,16 @@ def update_campaign_bidding(
             mh.enforce_increase_guardrail(
                 current_value or 0, bidding["target_cpa_micros"], "target CPA"
             )
+        if bidding["target_roas"] and current_kind == "roas":
+            mh.enforce_decrease_guardrail(
+                current_value or 0, bidding["target_roas"], "target ROAS"
+            )
+        if bidding["cpc_ceiling_micros"] and current_type == "TARGET_SPEND":
+            mh.enforce_increase_guardrail(
+                row.campaign.target_spend.cpc_bid_ceiling_micros,
+                bidding["cpc_ceiling_micros"],
+                "max CPC limit",
+            )
         op = ga_client.get_type("CampaignOperation")
         op.update.resource_name = campaign_rn
         op.update_mask.paths.extend(
@@ -261,6 +271,10 @@ def update_campaign_bidding(
         if kind == "cpa":
             mh.enforce_increase_guardrail(
                 current_value or 0, new_value, "target CPA"
+            )
+        else:
+            mh.enforce_decrease_guardrail(
+                current_value or 0, new_value, "target ROAS"
             )
         path = _TARGET_FIELDS[strategy_type][1]
         op = ga_client.get_type(message_type)
@@ -802,6 +816,12 @@ def update_bid_modifiers(
     operations = []
     change_items: list[pac.ChangeItem] = []
     for criterion, modifier in targets:
+        # An unset modifier behaves as 1.0 (no adjustment).
+        mh.enforce_increase_guardrail(
+            criterion.bid_modifier if criterion.bid_modifier > 0 else 1.0,
+            modifier,
+            f"bid modifier of {criterion.display_name or criterion.resource_name}",
+        )
         op = ga_client.get_type("CampaignCriterionOperation")
         op.update.resource_name = criterion.resource_name
         op.update.bid_modifier = modifier

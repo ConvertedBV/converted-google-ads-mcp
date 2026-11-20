@@ -203,6 +203,29 @@ def enforce_increase_guardrail(
         )
 
 
+def enforce_decrease_guardrail(
+    current_value: float, new_value: float, what: str
+) -> None:
+    """Rejects decreases that loosen spending by more than the limit.
+
+    For efficiency targets such as target ROAS, a lower value lets the
+    campaign bid more aggressively, so the guardrail applies to decreases:
+    the implied spend headroom (current / new) may grow by at most the
+    configured percentage per change.
+    """
+    max_pct = get_max_increase_pct()
+    if max_pct is None or current_value <= 0 or new_value <= 0:
+        return
+    if current_value / new_value > 1 + max_pct / 100:
+        decrease_pct = (1 - new_value / current_value) * 100
+        raise ToolError(
+            f"Error: Lowering the {what} by {decrease_pct:.0f}% loosens "
+            f"bidding beyond the {max_pct:.0f}% safety limit per change. "
+            "Confirm with the user and lower it in smaller steps, or ask the "
+            f"server administrator to adjust {MAX_INCREASE_PCT_ENV_VAR}."
+        )
+
+
 def search(ga_client: Any, customer_id: str, query: str) -> list[Any]:
     ga_service = utils.get_googleads_service_from_client(
         ga_client, "GoogleAdsService"
