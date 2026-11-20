@@ -30,6 +30,7 @@ class TestToolsConfig(unittest.TestCase):
         self.assertTrue(config.is_namespace_enabled("metadata"))
         self.assertTrue(config.is_namespace_enabled("labels"))
         self.assertTrue(config.is_namespace_enabled("assets"))
+        self.assertTrue(config.is_namespace_enabled("campaign_management"))
         self.assertFalse(config.is_namespace_enabled("unknown_category"))
 
         self.assertEqual(config.get_namespace_prefix("customers"), "customers")

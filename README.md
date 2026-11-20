@@ -2,6 +2,38 @@
 
 An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that enables LLMs and AI agents to query and manage [Google Ads](https://developers.google.com/google-ads/api) accounts.
 
+> **Converted fork.** This is Converted's fork of
+> [googleads/google-ads-mcp](https://github.com/googleads/google-ads-mcp),
+> kept close to upstream. Converted-specific additions:
+>
+> - **Google Ads API v26**, pinned in one place (`GOOGLE_ADS_API_VERSION` in
+>   `ads_mcp/utils.py`) so library upgrades never silently change the API version.
+> - **`campaign_management` tools** for day-to-day account work, all using the
+>   [propose & confirm workflow](#propose--confirm-safety-workflow):
+>
+>   | Tool | What it does |
+>   | --- | --- |
+>   | `update_entity_status` | Pause or enable campaigns, ad groups, ads or keywords (up to 200 per call). Removing is not supported. |
+>   | `update_campaign_budget` | Set a campaign's average daily budget; flags shared budgets. |
+>   | `update_cpc_bid` | Set the manual max CPC of an ad group or keyword. |
+>   | `add_keywords` | Add keywords to an ad group (match type, status, optional bid). |
+>   | `manage_negative_keywords` | Add or remove campaign/ad group negative keywords; REMOVE only touches verified negatives. |
+>
+>   Proposals show current values next to the new ones (e.g. `40.00 EUR → 50.00 EUR`).
+> - **Guardrails** (environment variables):
+>   - `GOOGLE_ADS_MCP_READ_ONLY=true` removes every tool that is not marked
+>     read-only, regardless of `tools_config.yaml` (kill switch).
+>   - `GOOGLE_ADS_MCP_MAX_INCREASE_PCT` (default `100`) caps how much a single
+>     call may raise a budget or bid; `off` disables it. Decreases are never capped.
+> - **Vercel deployment** via `Dockerfile.vercel`, with the Redis storage extra and
+>   `GOOGLE_ADS_MCP_STATELESS_HTTP=true` (serverless instances do not share MCP
+>   sessions). Other hosts keep upstream's stateful default.
+>
+> Write access needs a Google Ads user with Standard or Admin access on the
+> account and a developer token with at least Basic access. After deploying a
+> new API version, regenerate the GAQL resource list with
+> `google-ads-mcp-update-gaql` using real credentials.
+
 ## Table of Contents
 
 - [Overview](#overview)

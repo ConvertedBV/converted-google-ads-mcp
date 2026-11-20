@@ -102,7 +102,7 @@ ensure_subscriptions_listen(mcp)
 
 def initialize_and_mount_tools(parent_mcp: FastMCP) -> None:
     """Loads the tools configuration and dynamically mounts the tools sub-servers."""
-    from ads_mcp.config import ToolsConfig
+    from ads_mcp.config import ToolsConfig, is_read_only_mode
     import importlib
     import pkgutil
     import ads_mcp.tools as tools_pkg
@@ -130,20 +130,28 @@ def initialize_and_mount_tools(parent_mcp: FastMCP) -> None:
                 sub_servers[category] = attr_val
 
     config = ToolsConfig.load()
+    read_only = is_read_only_mode()
 
     for category, sub_mcp in sub_servers.items():
         if not config.is_namespace_enabled(category):
             continue
 
         # Filter disabled tools inside the sub-server before mounting
-        tool_names = []
-        for key, val in sub_mcp.local_provider._components.items():
-            if key.startswith("tool:"):
-                tool_names.append(val.name)
+        tools = [
+            val
+            for key, val in sub_mcp.local_provider._components.items()
+            if key.startswith("tool:")
+        ]
 
-        for name in tool_names:
-            if not config.is_tool_enabled(category, name):
-                sub_mcp.local_provider.remove_tool(name)
+        for tool in tools:
+            annotations = getattr(tool, "annotations", None)
+            is_read_only_tool = bool(
+                annotations is not None and annotations.read_only_hint
+            )
+            if not config.is_tool_enabled(category, tool.name) or (
+                read_only and not is_read_only_tool
+            ):
+                sub_mcp.local_provider.remove_tool(tool.name)
 
         # Determine prefix/namespace
         namespace_prefix = config.get_namespace_prefix(category)
