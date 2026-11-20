@@ -15,10 +15,13 @@
 """Account overview: the starting point before analysing or changing an account."""
 
 from collections import Counter
+import datetime
 from enum import Enum
 import json
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from google.ads.googleads.errors import GoogleAdsException
 from mcp.types import ToolAnnotations
 
 from ads_mcp import mutate_helpers as mh
@@ -207,3 +210,139 @@ def get_account_overview(
         indent=2,
         ensure_ascii=False,
     )
+
+
+MAX_CHANGE_ROWS = 500
+
+
+@account_mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+def get_change_history(
+    customer_id: str | int,
+    days: int = 7,
+    campaign_id: str | None = None,
+    limit: int = 100,
+    login_customer_id: str | int | None = None,
+) -> str:
+    """Lists recent changes in the account: what changed, when and by whom.
+
+    Covers changes made in the Google Ads UI, through the API (including this
+    server) and by Google (e.g. auto-applied recommendations). Google keeps
+    the change history for 30 days. Use it to answer "what changed before the
+    drop?" or to check that a change went through.
+
+    Args:
+        customer_id: Google Ads Customer ID (digits or hyphenated).
+        days: How many days back, 1-30 (default 7).
+        campaign_id: Optional campaign ID to limit the history to.
+        limit: Maximum number of changes, 1-500 (default 100, newest first).
+        login_customer_id: Optional manager customer ID for the
+            login-customer-id header.
+    """
+    cid = mh.require_customer_id(customer_id)
+    if not 1 <= int(days) <= 30:
+        raise ToolError("Error: 'days' must be 1-30.")
+    if not 1 <= int(limit) <= MAX_CHANGE_ROWS:
+        raise ToolError(f"Error: 'limit' must be 1-{MAX_CHANGE_ROWS}.")
+    campaign_filter = ""
+    if campaign_id:
+        campaign_filter = (
+            " AND campaign.id = "
+            f"{mh.require_simple_id(campaign_id, 'campaign_id')}"
+        )
+    today = datetime.date.today()
+    start = today - datetime.timedelta(days=int(days) - 1)
+    ga_client = utils.get_googleads_client(login_customer_id=login_customer_id)
+    rows = mh.search(
+        ga_client,
+        cid,
+        "SELECT change_event.change_date_time, "
+        "change_event.change_resource_type, "
+        "change_event.change_resource_name, change_event.client_type, "
+        "change_event.user_email, change_event.resource_change_operation, "
+        "change_event.changed_fields, campaign.name FROM change_event "
+        f"WHERE change_event.change_date_time >= '{start.isoformat()}' "
+        f"AND change_event.change_date_time <= '{today.isoformat()} 23:59:59'"
+        f"{campaign_filter} "
+        f"ORDER BY change_event.change_date_time DESC LIMIT {int(limit)}",
+    )
+    changes = []
+    for row in rows:
+        event = row.change_event
+        changes.append(
+            {
+                "time": event.change_date_time,
+                "operation": event.resource_change_operation.name,
+                "resource_type": event.change_resource_type.name,
+                "resource": event.change_resource_name,
+                "campaign": row.campaign.name or None,
+                "changed_fields": list(event.changed_fields.paths),
+                "by": event.user_email or None,
+                "via": event.client_type.name,
+            }
+        )
+    return json.dumps(
+        {
+            "from": start.isoformat(),
+            "to": today.isoformat(),
+            "count": len(changes),
+            "changes": changes,
+        },
+        indent=2,
+        ensure_ascii=False,
+    )
+
+
+@account_mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+def find_locations(
+    customer_id: str | int,
+    names: list[str],
+    country_code: str | None = "BE",
+    locale: str = "nl",
+    login_customer_id: str | int | None = None,
+) -> str:
+    """Finds location IDs for targeting by name (cities, regions, countries).
+
+    Returns geo target constant IDs with their full name, type and reach, to
+    use as location_ids in the campaign tools. Searches in the given country
+    (default BE; pass null for worldwide) and language.
+
+    Args:
+        customer_id: Google Ads Customer ID (digits or hyphenated).
+        names: Up to 25 place names, e.g. ["Gent", "Oost-Vlaanderen"].
+        country_code: Optional ISO country code to search in (default BE).
+        locale: Language of the names, e.g. nl, fr or en (default nl).
+        login_customer_id: Optional manager customer ID for the
+            login-customer-id header.
+    """
+    mh.require_customer_id(customer_id)
+    places = mh.clean_texts(names, "names", 25)
+    ga_client = utils.get_googleads_client(login_customer_id=login_customer_id)
+    request = ga_client.get_type("SuggestGeoTargetConstantsRequest")
+    request.locale = (locale or "nl").strip().lower()
+    if country_code:
+        request.country_code = country_code.strip().upper()
+    request.location_names.names.extend(places)
+    service = utils.get_googleads_service_from_client(
+        ga_client, "GeoTargetConstantService"
+    )
+    try:
+        response = service.suggest_geo_target_constants(request=request)
+    except GoogleAdsException as exc:
+        raise ToolError(
+            f"Location search failed:\n{utils.format_google_ads_error(exc)}"
+        ) from exc
+    results = []
+    for suggestion in response.geo_target_constant_suggestions:
+        constant = suggestion.geo_target_constant
+        results.append(
+            {
+                "search_term": suggestion.search_term,
+                "id": constant.id,
+                "name": constant.canonical_name or constant.name,
+                "type": constant.target_type,
+                "country": constant.country_code,
+                "status": constant.status.name,
+                "reach": suggestion.reach or None,
+            }
+        )
+    return json.dumps({"locations": results}, indent=2, ensure_ascii=False)

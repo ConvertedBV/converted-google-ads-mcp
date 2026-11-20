@@ -30,11 +30,13 @@ from ads_mcp import image_assets as ia
 from ads_mcp import mutate_helpers as mh
 from ads_mcp import propose_and_confirm as pac
 from ads_mcp.tools.campaign_builder import (
+    NEXT_STEP,
     LocationTargeting,
     campaign_builder_mcp,
 )
 from ads_mcp.tools.campaign_management import EntityStatus
 from ads_mcp.tools.campaign_settings import build_targeting_operations
+from ads_mcp.safety import enforce_budget_ceiling
 import ads_mcp.utils as utils
 
 MAX_ASSET_GROUPS = 10
@@ -414,9 +416,11 @@ def _common_inputs(
     end = mh.require_date(end_date, "end_date")
     if start and end and end < start:
         raise ToolError("Error: 'end_date' must not be before 'start_date'.")
+    budget_micros = mh.to_micros(daily_budget, "daily_budget")
+    enforce_budget_ceiling(budget_micros)
     return {
         "name": campaign_name,
-        "budget_micros": mh.to_micros(daily_budget, "daily_budget"),
+        "budget_micros": budget_micros,
         "bidding": bidding,
         "start": start,
         "end": end,
@@ -783,6 +787,7 @@ def create_performance_max_campaign(
         success_message=(
             f"Created Performance Max campaign '{base['name']}' "
             f"({base['status']}) with {len(groups)} asset groups."
+            + (NEXT_STEP if base["status"] == "PAUSED" else "")
         ),
         error_prefix="Failed to create Performance Max campaign",
     )
@@ -1180,6 +1185,7 @@ def create_demand_gen_campaign(
         success_message=(
             f"Created Demand Gen campaign '{base['name']}' ({base['status']}) "
             f"with {len(groups)} ad groups."
+            + (NEXT_STEP if base["status"] == "PAUSED" else "")
         ),
         error_prefix="Failed to create Demand Gen campaign",
     )

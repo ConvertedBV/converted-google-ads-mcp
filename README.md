@@ -92,6 +92,18 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 > - **Guardrails** (environment variables):
 >   - `GOOGLE_ADS_MCP_READ_ONLY=true` removes every tool that is not marked
 >     read-only, regardless of `tools_config.yaml` (kill switch).
+>   - `GOOGLE_ADS_MCP_ACCOUNT_IDS` (comma-separated, include the manager ID)
+>     refuses every call for other accounts.
+>   - `GOOGLE_ADS_MCP_BLOCKED_TOOLS` (comma-separated names, with or without
+>     namespace prefix) hides specific tools.
+>   - `GOOGLE_ADS_MCP_MAX_DAILY_BUDGET` is an absolute ceiling for any daily
+>     budget set through the server (account currency), on top of the
+>     per-change increase cap.
+>   - `add_keywords` reports exemptible policy violations and requests a
+>     policy exemption only with `request_policy_exemption=True`; BROAD match
+>     is refused on manual CPC.
+> - **More `account` tools** (read-only): `get_change_history` (what changed,
+>   when and by whom, last 30 days) and `find_locations` (location IDs by name).
 >   - `GOOGLE_ADS_MCP_MAX_INCREASE_PCT` (default `100`) caps how much a single
 >     call may raise a budget, bid or target CPA; `off` disables it. Decreases
 >     are never capped.

@@ -28,6 +28,7 @@ from mcp import types as mcp_types
 from mcp.server.subscriptions import InMemorySubscriptionBus, ListenHandler
 from ads_mcp.audit import AuditMiddleware
 from ads_mcp.instructions import SERVER_INSTRUCTIONS
+from ads_mcp.safety import AccountScopeMiddleware, is_blocked
 from ads_mcp.auth_storage import (
     create_audit_storage,
     create_client_storage,
@@ -72,6 +73,8 @@ mcp.add_middleware(
         server=mcp,
     )
 )
+# Added after the audit middleware so refused calls are still audited.
+mcp.add_middleware(AccountScopeMiddleware())
 
 
 def ensure_subscriptions_listen(server: FastMCP) -> bool:
@@ -151,8 +154,10 @@ def initialize_and_mount_tools(parent_mcp: FastMCP) -> None:
             is_read_only_tool = bool(
                 annotations is not None and annotations.read_only_hint
             )
-            if not config.is_tool_enabled(category, tool.name) or (
-                read_only and not is_read_only_tool
+            if (
+                not config.is_tool_enabled(category, tool.name)
+                or (read_only and not is_read_only_tool)
+                or is_blocked(tool.name, config.get_namespace_prefix(category))
             ):
                 sub_mcp.local_provider.remove_tool(tool.name)
 

@@ -32,9 +32,12 @@ from ads_mcp import mutate_helpers as mh
 from ads_mcp import propose_and_confirm as pac
 from ads_mcp.tools.campaign_management import EntityStatus
 from ads_mcp.tools.campaign_settings import build_targeting_operations
+from ads_mcp.safety import enforce_budget_ceiling
 import ads_mcp.utils as utils
 
 campaign_builder_mcp = FastMCP("campaign_builder")
+
+NEXT_STEP = " Next: review it in Google Ads (or with get_account_overview), then enable it with update_entity_status (entity_type CAMPAIGN, the campaign ID above) once the user approves."
 
 MAX_AD_GROUPS_PER_CAMPAIGN = 20
 MAX_KEYWORDS_PER_AD_GROUP = 200
@@ -58,6 +61,7 @@ def _currency(ga_client: Any, cid: str) -> str:
 def normalize_ad_group(
     ad_group: ab.AdGroupInput | dict, requires_cpc: bool
 ) -> dict[str, Any]:
+    # requires_cpc means manual CPC bidding, where BROAD match is refused.
     """Validates an ad group definition into a plain dict."""
     if isinstance(ad_group, dict):
         ad_group = ab.AdGroupInput(**ad_group)
@@ -67,6 +71,18 @@ def normalize_ad_group(
     if requires_cpc and ad_group.cpc_bid is None:
         raise ToolError(
             f"Error: Ad group '{name}' needs 'cpc_bid' for MANUAL_CPC."
+        )
+    if (
+        requires_cpc
+        and str(
+            getattr(ad_group.match_type, "value", ad_group.match_type)
+        ).upper()
+        == "BROAD"
+    ):
+        raise ToolError(
+            f"Error: Ad group '{name}' uses BROAD match with MANUAL_CPC, "
+            "which matches far too widely without smart bidding. Use PHRASE "
+            "or EXACT, or a conversion-based bidding strategy."
         )
     ads = [ab.normalize_rsa(ad) for ad in ad_group.ads]
     if not 1 <= len(ads) <= MAX_RSAS_PER_AD_GROUP:
@@ -281,6 +297,7 @@ def create_search_campaign(
     if not campaign_name:
         raise ToolError("Error: 'name' is required.")
     budget_micros = mh.to_micros(daily_budget, "daily_budget")
+    enforce_budget_ceiling(budget_micros)
     bidding = ab.resolve_bidding(
         bidding_strategy, target_cpa, target_roas_percent, max_cpc_limit
     )
@@ -466,6 +483,7 @@ def create_search_campaign(
         success_message=(
             f"Created Search campaign '{campaign_name}' ({status_value}) "
             f"with {len(groups)} ad groups."
+            + (NEXT_STEP if status_value == "PAUSED" else "")
         ),
         error_prefix="Failed to create Search campaign",
     )
