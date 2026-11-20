@@ -83,6 +83,7 @@ class TestToolsMounting(unittest.IsolatedAsyncioTestCase):
             "link_assets",
             "manage_recommendations",
             "update_responsive_search_ad",
+            "replace_ad_text",
         ):
             self.assertIn(f"campaign_management_{name}", tool_names)
         for name in (

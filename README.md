@@ -27,6 +27,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   | `link_assets` | Link or unlink sitelinks, callouts, snippets, ... at account, campaign or ad group level. |
 >   | `manage_recommendations` | Apply or dismiss Google recommendations (no API dry run; verified to be open). |
 >   | `update_responsive_search_ad` | Replace the texts, URL and paths of an existing RSA. |
+>   | `replace_ad_text` | Replace one headline/description everywhere: RSAs, PMax asset groups and Demand Gen ads, keeping all other texts, pins and dynamic insertions. |
 >
 >   Proposals show current values next to the new ones (e.g. `40.00 EUR → 50.00 EUR`).
 > - **`campaign_builder` tools** that build in one atomic request (everything or

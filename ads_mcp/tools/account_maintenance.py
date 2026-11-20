@@ -604,6 +604,13 @@ def manage_recommendations(
     )
 
 
+def _pin(asset: Any) -> int | None:
+    """Maps a pinned_field such as HEADLINE_2 to its position (2)."""
+    name = asset.pinned_field.name if asset.pinned_field else ""
+    suffix = name.rsplit("_", 1)[-1]
+    return int(suffix) if suffix.isdigit() else None
+
+
 @campaign_management_mcp.tool(
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True)
 )
@@ -619,8 +626,10 @@ def update_responsive_search_ad(
     """Replaces the texts, final URL and paths of a responsive search ad.
 
     The ad keeps its ID and statistics but goes through policy review again.
-    Pass the complete new set of headlines and descriptions; the current
-    texts are shown in the proposal for comparison.
+    Pass the complete new set of headlines and descriptions, including pins
+    and dynamic insertions you want to keep; the current texts and pins are
+    shown in the proposal for comparison. To change a single text, use
+    replace_ad_text instead, which leaves everything else untouched.
     {workflow}
     Args:
         customer_id: Google Ads Customer ID (digits or hyphenated).
@@ -656,11 +665,11 @@ def update_responsive_search_ad(
         )
     current_rsa = {
         "headlines": [
-            {"text": h.text, "pin": None}
+            {"text": h.text, "pin": _pin(h)}
             for h in current.responsive_search_ad.headlines
         ],
         "descriptions": [
-            {"text": d.text, "pin": None}
+            {"text": d.text, "pin": _pin(d)}
             for d in current.responsive_search_ad.descriptions
         ],
         "final_url": current.final_urls[0] if current.final_urls else "",

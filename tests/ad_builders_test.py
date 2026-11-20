@@ -71,6 +71,25 @@ class TestResponsiveSearchAds(unittest.TestCase):
                 with self.assertRaisesRegex(ToolError, message):
                     ab.normalize_rsa({**VALID_AD, **override})
 
+    def test_dynamic_insertions_count_default_text(self):
+        self.assertEqual(ab.display_length("{KeyWord:Airco}"), 5)
+        self.assertEqual(
+            ab.display_length("{LOCATION(City):Gent} airco plaatsen"), 19
+        )
+        self.assertEqual(ab.display_length("{CUSTOMIZER.prijs:99} euro"), 7)
+        self.assertEqual(ab.display_length("Plain text"), 10)
+        rsa = ab.normalize_rsa(
+            {
+                **VALID_AD,
+                "headlines": [
+                    "{KeyWord:Airco laten plaatsen in}",
+                    "{LOCATION(City):Uw regio} airco installateur",
+                    "Erkend vakman",
+                ],
+            }
+        )
+        self.assertEqual(len(rsa["headlines"]), 3)
+
     def test_fill_rsa_sets_pins(self):
         client = GoogleAdsClient(
             credentials=AnonymousCredentials(),
