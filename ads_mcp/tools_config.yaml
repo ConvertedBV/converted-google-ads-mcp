@@ -17,3 +17,7 @@ namespaces:
   keyword_planning: true
   # Converted: conversion tracking overview, actions and goals.
   conversions: true
+  # Converted: remarketing lists, audience targeting, demographic exclusions.
+  audiences: true
+  # Converted: campaign experiments (A/B tests).
+  experiments: true

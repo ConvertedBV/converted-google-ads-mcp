@@ -39,8 +39,26 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   | `create_ad_group` | A complete ad group (keywords, negatives, 1-3 RSAs) in an existing Search campaign. |
 >   | `create_responsive_search_ad` | One RSA in an existing ad group (max 3 per ad group). |
 >
+>   | `create_performance_max_campaign` | Budget, campaign (brand guidelines: business name and logo at campaign level), targeting and 1-10 asset groups with texts, images, YouTube videos and search theme / audience signals. |
+>   | `create_asset_group` | A complete asset group in an existing PMax campaign. |
+>   | `create_demand_gen_campaign` | Budget, campaign and 1-10 ad groups with their own locations, languages, optional audience and multi-asset image ads. |
+>   | `create_image_assets` | Upload images from public https URLs, optionally checked for a role (landscape, square, portrait, logo). |
+>
+>   Images can be existing asset IDs or https URLs. URLs are fetched server-side
+>   with SSRF protection (public IPs only, connection pinned to the checked IP,
+>   no redirects or proxies, 5 MB and an overall deadline per image) and checked
+>   for format and aspect ratio before the API dry run.
+>
 >   Disable the namespace in `tools_config.yaml` to allow maintenance but no
 >   new campaigns.
+> - **`audiences` tools**: `create_remarketing_list` (URL-based website
+>   visitors), `manage_audience_targeting` (user lists, interests and custom
+>   audiences on Search/Display, as observation or targeting) and
+>   `manage_demographic_exclusions` (age and gender).
+> - **`experiments` tools**: `create_experiment` (A/B test with a treatment draft
+>   to edit with the other tools) and `manage_experiment` (schedule, end, promote).
+> - `manage_account_exclusions` (in `campaign_management`): account-wide
+>   placement, YouTube channel and content label exclusions.
 > - **`keyword_planning` tools** (read-only, so also available in read-only mode):
 >   `generate_keyword_ideas` (from keywords, a URL or a site), `get_keyword_metrics`
 >   (volume, competition, top-of-page bids) and `forecast_keywords` (clicks, cost,

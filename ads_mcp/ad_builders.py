@@ -155,6 +155,22 @@ class AdGroupInput(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def normalize_plain_texts(
+    values: list[str] | None,
+    kind: str,
+    min_items: int,
+    max_items: int,
+    max_chars: int,
+) -> list[str]:
+    """Validates unpinned ad texts (PMax, Demand Gen) like RSA texts."""
+    return [
+        item["text"]
+        for item in _normalize_texts(
+            values or [], kind, min_items, max_items, max_chars, 0
+        )
+    ]
+
+
 def _normalize_texts(
     values: list[Any],
     kind: str,
@@ -192,7 +208,7 @@ def _normalize_texts(
         items.append({"text": text, "pin": int(pin) if pin else None})
     if not min_items <= len(items) <= max_items:
         raise ToolError(
-            f"Error: A responsive search ad needs {min_items}-{max_items} "
+            f"Error: This ad needs {min_items}-{max_items} "
             f"{kind}s; got {len(items)}."
         )
     return items

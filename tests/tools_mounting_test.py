@@ -100,6 +100,16 @@ class TestToolsMounting(unittest.IsolatedAsyncioTestCase):
             "conversions_create_conversion_action",
             "conversions_update_conversion_action",
             "conversions_set_conversion_goals",
+            "campaign_builder_create_performance_max_campaign",
+            "campaign_builder_create_asset_group",
+            "campaign_builder_create_demand_gen_campaign",
+            "campaign_builder_create_image_assets",
+            "audiences_create_remarketing_list",
+            "audiences_manage_audience_targeting",
+            "audiences_manage_demographic_exclusions",
+            "campaign_management_manage_account_exclusions",
+            "experiments_create_experiment",
+            "experiments_manage_experiment",
         ):
             self.assertIn(name, tool_names)
 
