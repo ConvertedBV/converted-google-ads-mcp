@@ -84,6 +84,11 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   via gclid/gbraid/wbraid and/or enhanced conversions for leads; emails and
 >   phone numbers are normalized and SHA-256 hashed server-side, consent is an
 >   explicit input).
+> - **Way of working**: server instructions (`ads_mcp/instructions.py`) that MCP
+>   clients give the model on connect (start with the account overview, propose
+>   and confirm every change, research before building, build paused, follow
+>   the account's naming, keep clients apart), plus two prompts:
+>   `account_health_check` and `plan_new_campaign`.
 > - **Guardrails** (environment variables):
 >   - `GOOGLE_ADS_MCP_READ_ONLY=true` removes every tool that is not marked
 >     read-only, regardless of `tools_config.yaml` (kill switch).

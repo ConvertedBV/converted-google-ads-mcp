@@ -29,6 +29,7 @@ from ads_mcp.resources import (
     release_notes,
     segments,
 )  # noqa: F401
+from ads_mcp import prompts  # noqa: F401
 
 
 def _env_flag(name: str) -> bool:

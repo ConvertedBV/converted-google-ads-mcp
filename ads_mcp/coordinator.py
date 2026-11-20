@@ -27,6 +27,7 @@ from fastmcp_tasks import TasksExtension
 from mcp import types as mcp_types
 from mcp.server.subscriptions import InMemorySubscriptionBus, ListenHandler
 from ads_mcp.audit import AuditMiddleware
+from ads_mcp.instructions import SERVER_INSTRUCTIONS
 from ads_mcp.auth_storage import (
     create_audit_storage,
     create_client_storage,
@@ -57,9 +58,11 @@ if _CLIENT_ID and _CLIENT_SECRET:
         provider_kwargs["client_storage"] = client_storage
 
     auth = GoogleProvider(**provider_kwargs)
-    mcp = FastMCP("Google Ads Server", auth=auth)
+    mcp = FastMCP(
+        "Google Ads Server", instructions=SERVER_INSTRUCTIONS, auth=auth
+    )
 else:
-    mcp = FastMCP("Google Ads Server")
+    mcp = FastMCP("Google Ads Server", instructions=SERVER_INSTRUCTIONS)
 
 mcp.add_extension(TasksExtension())
 mcp.add_middleware(
