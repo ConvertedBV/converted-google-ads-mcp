@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "google-ads-mcp"
-version = "0.0.6"
+version = "0.0.6+converted.1"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
-    "google-ads>=33.0.0",
+    # 35.1.0 ships v26 of the Google Ads API (pinned in ads_mcp/utils.py).
+    "google-ads>=35.1.0,<36",
     "mcp[cli]>=2.0.0,<3",
     "fastmcp[tasks]>=4.0.6,<5"
 ]

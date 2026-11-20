@@ -34,7 +34,7 @@ from fastmcp_tasks import TasksExtension
 from fastmcp_tasks.client import TasksClientExtension, call_tool_task
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
-from google.ads.googleads.v25.resources.types.customer_user_access import (
+from google.ads.googleads.v26.resources.types.customer_user_access import (
     CustomerUserAccess,
 )
 from google.auth.credentials import AnonymousCredentials

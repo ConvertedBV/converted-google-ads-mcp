@@ -29,7 +29,7 @@ from unittest.mock import patch
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
 from google.ads.googleads.util import get_nested_attr
-from google.ads.googleads.v25.services.services.google_ads_service import (
+from google.ads.googleads.v26.services.services.google_ads_service import (
     GoogleAdsServiceClient,
 )
 import google.auth
@@ -38,6 +38,12 @@ from google.protobuf.message import Message as PbMessage
 import proto
 
 from ads_mcp.mcp_header_interceptor import MCPHeaderInterceptor
+
+# Google Ads API version used for every client, service and type. Pinned
+# explicitly so that upgrading the google-ads library never silently moves the
+# server to a newer API version than the typed imports in this package (which
+# reference the same version). Bump this together with those imports.
+GOOGLE_ADS_API_VERSION = "v26"
 
 # filename for generated field information used by search
 _GAQL_FILENAME = "gaql_resources.txt"
@@ -147,6 +153,7 @@ def _get_googleads_client(
     args: dict[str, Any] = {
         "credentials": _create_credentials(),
         "use_proto_plus": True,
+        "version": GOOGLE_ADS_API_VERSION,
     }
 
     # If the developer-token is not set, avoid setting None.
