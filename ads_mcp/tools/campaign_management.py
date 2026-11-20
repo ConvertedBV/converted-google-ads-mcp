@@ -25,8 +25,10 @@ checksum commits the change.
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+import inspect
 import os
 import re
+import textwrap
 from typing import Any
 
 from fastmcp import FastMCP
@@ -344,7 +346,11 @@ def _with_workflow_doc(fn: Callable[..., str]) -> Callable[..., str]:
     Must be applied below ``@tool`` so the description FastMCP registers
     already contains the workflow instructions.
     """
-    fn.__doc__ = (fn.__doc__ or "").format(workflow=_WORKFLOW_DOC)
+    # Python 3.13+ already strips docstring indentation at compile time, so
+    # normalize both texts to get the same description on every version.
+    fn.__doc__ = inspect.cleandoc(fn.__doc__ or "").format(
+        workflow=textwrap.dedent(_WORKFLOW_DOC)
+    )
     return fn
 
 
