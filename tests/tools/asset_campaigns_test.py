@@ -217,6 +217,28 @@ class TestPerformanceMax(AssetCampaignTestCase):
         )
         self.assertIn("Created Performance Max campaign", result)
 
+    def test_retail_campaign_includes_all_products(self):
+        self.search_results(*self.lookups())
+        self.propose(
+            ac.create_performance_max_campaign,
+            **self._kwargs(merchant_center_id="123456789", feed_label="BE"),
+        )
+        ops = self.request("GoogleAdsService", "mutate").mutate_operations
+        campaign = ops[1].campaign_operation.create
+        self.assertEqual(campaign.shopping_setting.merchant_id, 123456789)
+        self.assertEqual(campaign.shopping_setting.feed_label, "BE")
+        filters = [
+            op.asset_group_listing_group_filter_operation.create
+            for op in ops
+            if self.kinds([op])[0]
+            == "asset_group_listing_group_filter_operation"
+        ]
+        self.assertEqual(len(filters), 1)
+        self.assertEqual(filters[0].type_.name, "UNIT_INCLUDED")
+        self.assertEqual(filters[0].listing_source.name, "SHOPPING")
+        with self.assertRaisesRegex(ToolError, "needs 'merchant_center_id'"):
+            ac.create_performance_max_campaign(**self._kwargs(feed_label="BE"))
+
     def test_changed_image_invalidates_checksum(self):
         self.search_results(*self.lookups(), *self.lookups())
         proposal = self.propose(

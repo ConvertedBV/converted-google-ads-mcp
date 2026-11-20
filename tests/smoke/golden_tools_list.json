@@ -7,6 +7,76 @@
         }
       },
       "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Summarizes an account and flags what needs attention.\n\nUse this first when working on an account. Returns account settings and,\nper non-removed campaign: status and primary status (with reasons),\nchannel, bidding strategy, daily budget, spend, clicks, conversions,\nvalue, CPA, ROAS and (for Search) impression share lost to budget.\nFlags: auto-tagging off (breaks offline conversion imports),\ncampaigns limited by budget, campaigns spending without conversions,\ncampaigns that are not eligible or limited, and disapproved enabled ads.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "period": {
+            "default": "LAST_30_DAYS",
+            "description": "LAST_7_DAYS, LAST_14_DAYS or LAST_30_DAYS (default).",
+            "enum": [
+              "LAST_7_DAYS",
+              "LAST_14_DAYS",
+              "LAST_30_DAYS"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_get_account_overview",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account Get Account Overview"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
         "destructiveHint": false,
         "readOnlyHint": false
       },
@@ -1959,6 +2029,18 @@
             "default": null,
             "description": "Geo target constant IDs to exclude."
           },
+          "feed_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional Merchant Center feed label (e.g. BE)."
+          },
           "landscape_logo_image": {
             "anyOf": [
               {
@@ -2020,6 +2102,18 @@
           "logo_image": {
             "description": "Square logo: asset ID or https URL.",
             "type": "string"
+          },
+          "merchant_center_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional linked Merchant Center ID for a retail\n(shopping) PMax campaign; every asset group then includes all\nproducts."
           },
           "name": {
             "description": "Campaign name.",

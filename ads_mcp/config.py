@@ -40,6 +40,7 @@ ALL_CATEGORIES = [
     "conversions",
     "audiences",
     "experiments",
+    "account",
 ]
 
 # When truthy, every tool that is not annotated readOnlyHint=True is removed

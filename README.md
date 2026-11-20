@@ -63,6 +63,12 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   exclusions (periods with broken tracking) and seasonality adjustments (short
 >   events with an expected conversion rate change), per account, channel or
 >   campaign.
+> - **`account` tool** (read-only): `get_account_overview`, the starting point
+>   for an account: settings, per-campaign status, spend, conversions, CPA,
+>   ROAS and impression share lost to budget, plus flags (auto-tagging off,
+>   budget-limited, spend without conversions, limited campaigns, disapproved
+>   ads). `create_performance_max_campaign` also accepts a Merchant Center ID
+>   (and feed label) for retail campaigns.
 > - `create_extension_asset` (in `campaign_management`): call, promotion and
 >   price assets, created and linked to the account, a campaign or an ad group
 >   in one atomic step.

@@ -249,8 +249,13 @@ def build_asset_group_operations(
     ids: ia.TempIds,
     pool: ia.AssetPool,
     status: str,
+    retail: bool = False,
 ) -> tuple[list[Any], list[pac.ChangeItem]]:
-    """Builds the asset group, its asset links and its signals."""
+    """Builds the asset group, its asset links and its signals.
+
+    With `retail`, adds the root listing group filter that includes all
+    Merchant Center products, which retail asset groups need to serve them.
+    """
     enums = ga_client.enums
     operations: list[Any] = []
     group_rn = ids.next("assetGroups")
@@ -300,6 +305,15 @@ def build_asset_group_operations(
         signal.asset_group = group_rn
         signal.audience.audience = f"customers/{cid}/audiences/{audience_id}"
         operations.append(signal_op)
+    if retail:
+        filter_op = ga_client.get_type("MutateOperation")
+        listing = filter_op.asset_group_listing_group_filter_operation.create
+        listing.asset_group = group_rn
+        listing.type_ = enums.ListingGroupFilterTypeEnum.UNIT_INCLUDED
+        listing.listing_source = (
+            enums.ListingGroupFilterListingSourceEnum.SHOPPING
+        )
+        operations.append(filter_op)
 
     def _images(key: str) -> str | None:
         return f"{len(group[key])} image(s)" if group[key] else None
@@ -541,6 +555,8 @@ def create_performance_max_campaign(
     target_cpa: float | None = None,
     target_roas_percent: float | None = None,
     landscape_logo_image: str | None = None,
+    merchant_center_id: str | None = None,
+    feed_label: str | None = None,
     location_targeting: LocationTargeting = LocationTargeting.PRESENCE,
     start_date: str | None = None,
     end_date: str | None = None,
@@ -576,6 +592,10 @@ def create_performance_max_campaign(
         target_cpa: Optional target CPA (MAXIMIZE_CONVERSIONS).
         target_roas_percent: Optional target ROAS in percent.
         landscape_logo_image: Optional 4:1 logo: asset ID or https URL.
+        merchant_center_id: Optional linked Merchant Center ID for a retail
+            (shopping) PMax campaign; every asset group then includes all
+            products.
+        feed_label: Optional Merchant Center feed label (e.g. BE).
         location_targeting: PRESENCE (default) or PRESENCE_OR_INTEREST.
         start_date: Optional start date YYYY-MM-DD.
         end_date: Optional end date YYYY-MM-DD.
@@ -611,6 +631,14 @@ def create_performance_max_campaign(
     brand = ab.normalize_plain_texts(
         [business_name], "business name", 1, 1, 25
     )[0]
+    merchant = (
+        mh.require_simple_id(merchant_center_id, "merchant_center_id")
+        if merchant_center_id
+        else None
+    )
+    label = (feed_label or "").strip() or None
+    if label and not merchant:
+        raise ToolError("Error: 'feed_label' needs 'merchant_center_id'.")
     targeting_value = mh.enum_value(
         location_targeting, LocationTargeting, "location_targeting"
     )
@@ -642,6 +670,10 @@ def create_performance_max_campaign(
         eu_political=contains_eu_political_advertising,
     )
     campaign.brand_guidelines_enabled = True
+    if merchant:
+        campaign.shopping_setting.merchant_id = int(merchant)
+        if label:
+            campaign.shopping_setting.feed_label = label
     campaign.geo_target_type_setting.positive_geo_target_type = getattr(
         ga_client.enums.PositiveGeoTargetTypeEnum, targeting_value
     )
@@ -691,6 +723,11 @@ def create_performance_max_campaign(
         currency,
         {
             "Business name": brand,
+            "Merchant Center": (
+                f"{merchant}" + (f" (feed {label})" if label else "")
+                if merchant
+                else None
+            ),
             "Logo": logo_image,
             "Location targeting": targeting_value,
             "Languages": None if languages else "All languages",
@@ -702,7 +739,14 @@ def create_performance_max_campaign(
     change_items.extend(targeting_items)
     for group in groups:
         ops, items = build_asset_group_operations(
-            ga_client, cid, campaign_rn, group, ids, pool, "ENABLED"
+            ga_client,
+            cid,
+            campaign_rn,
+            group,
+            ids,
+            pool,
+            "ENABLED",
+            retail=bool(merchant),
         )
         group_ops.extend(ops)
         change_items.extend(items)
@@ -726,6 +770,8 @@ def create_performance_max_campaign(
             "excluded_locations": excluded,
             "languages": languages,
             "business_name": brand,
+            "merchant_center_id": merchant,
+            "feed_label": label,
             "logo": logo_image,
             "landscape_logo": landscape_logo_image,
             "location_targeting": targeting_value,
@@ -779,7 +825,8 @@ def create_asset_group(
     rows = mh.search(
         ga_client,
         cid,
-        "SELECT campaign.name, campaign.advertising_channel_type FROM campaign "
+        "SELECT campaign.name, campaign.advertising_channel_type, "
+        "campaign.shopping_setting.merchant_id FROM campaign "
         f"WHERE campaign.id = {campaign_id}",
     )
     if not rows:
@@ -792,7 +839,14 @@ def create_asset_group(
     ids = ia.TempIds(cid)
     pool = ia.AssetPool(ga_client, cid, ids)
     group_ops, change_items = build_asset_group_operations(
-        ga_client, cid, campaign_rn, group, ids, pool, status_value
+        ga_client,
+        cid,
+        campaign_rn,
+        group,
+        ids,
+        pool,
+        status_value,
+        retail=bool(rows[0].campaign.shopping_setting.merchant_id),
     )
     change_items.insert(
         0,

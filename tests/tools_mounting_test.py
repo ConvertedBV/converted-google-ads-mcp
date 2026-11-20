@@ -111,6 +111,7 @@ class TestToolsMounting(unittest.IsolatedAsyncioTestCase):
             "campaign_management_manage_account_exclusions",
             "campaign_management_manage_bidding_adjustments",
             "campaign_management_create_extension_asset",
+            "account_get_account_overview",
             "experiments_create_experiment",
             "experiments_manage_experiment",
         ):
