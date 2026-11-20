@@ -239,9 +239,11 @@ def create_search_campaign(
     Before calling, gather from the user or the account: landing pages,
     locations and languages (look up IDs with the search tool on
     geo_target_constant / language_constant, e.g. 2056 = Belgium, 1010 =
-    Dutch, 1002 = French), budget and bidding. Conversion-based bidding
-    (MAXIMIZE_CONVERSIONS / MAXIMIZE_CONVERSION_VALUE) needs working
-    conversion tracking; check the conversion_action resource first.
+    Dutch, 1002 = French), budget and bidding. Recommended order: research
+    keywords with generate_keyword_ideas / get_keyword_metrics, size the
+    budget with forecast_keywords, and check get_conversion_setup before
+    choosing conversion-based bidding (MAXIMIZE_CONVERSIONS /
+    MAXIMIZE_CONVERSION_VALUE), which needs working primary conversions.
     {workflow}
     Args:
         customer_id: Google Ads Customer ID (digits or hyphenated).

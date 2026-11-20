@@ -41,6 +41,15 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >
 >   Disable the namespace in `tools_config.yaml` to allow maintenance but no
 >   new campaigns.
+> - **`keyword_planning` tools** (read-only, so also available in read-only mode):
+>   `generate_keyword_ideas` (from keywords, a URL or a site), `get_keyword_metrics`
+>   (volume, competition, top-of-page bids) and `forecast_keywords` (clicks, cost,
+>   conversions and CPA for a budget and bidding strategy).
+> - **`conversions` tools**: `get_conversion_setup` (read-only overview with warnings
+>   such as primary actions without conversions), `create_conversion_action`
+>   (returns the GTM `send_to` for web tags), `update_conversion_action` (primary /
+>   secondary, counting, value, lookback) and `set_conversion_goals` (account or
+>   campaign goals used for bidding).
 > - **Guardrails** (environment variables):
 >   - `GOOGLE_ADS_MCP_READ_ONLY=true` removes every tool that is not marked
 >     read-only, regardless of `tools_config.yaml` (kill switch).

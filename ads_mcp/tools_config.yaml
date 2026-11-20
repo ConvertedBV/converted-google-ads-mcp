@@ -13,3 +13,7 @@ namespaces:
   campaign_management: true
   # Converted: build new Search campaigns, ad groups and ads (atomic).
   campaign_builder: true
+  # Converted: Keyword Planner ideas, metrics and forecasts (read-only).
+  keyword_planning: true
+  # Converted: conversion tracking overview, actions and goals.
+  conversions: true
