@@ -268,6 +268,61 @@ class TestPortfolio(MutateToolTestCase):
             f"customers/{CID}/biddingStrategies/999",
         )
 
+    def test_dropping_target_refused_unless_allowed(self):
+        rows = [
+            self._campaign(
+                111,
+                "MAXIMIZE_CONVERSIONS",
+                **{
+                    "campaign.maximize_conversions.target_cpa_micros": 40_000_000
+                },
+            ),
+            self._campaign(
+                222,
+                "TARGET_SPEND",
+                **{"campaign.target_spend.cpc_bid_ceiling_micros": 1_000_000},
+            ),
+        ]
+        kwargs = dict(
+            customer_id=CID,
+            campaign_ids=["111", "222"],
+            name="Zonder doel",
+            strategy="MAXIMIZE_CONVERSIONS",
+        )
+        self.search_results(self._currency(), rows)
+        with self.assertRaisesRegex(
+            ToolError, r"111 \(target CPA\).*222 \(max CPC limit\)"
+        ):
+            acs.manage_portfolio_bidding_strategy(**kwargs)
+        self.search_results(self._currency(), rows)
+        self.propose(
+            acs.manage_portfolio_bidding_strategy,
+            allow_removing_targets=True,
+            **kwargs,
+        )
+
+    def test_ceiling_guardrail(self):
+        self.search_results(
+            self._currency(),
+            [
+                self._campaign(
+                    222,
+                    "TARGET_SPEND",
+                    **{
+                        "campaign.target_spend.cpc_bid_ceiling_micros": 1_000_000
+                    },
+                )
+            ],
+        )
+        with self.assertRaisesRegex(ToolError, "max CPC limit of campaign 222"):
+            acs.manage_portfolio_bidding_strategy(
+                customer_id=CID,
+                campaign_ids=["222"],
+                name="Clicks",
+                strategy="MAXIMIZE_CLICKS",
+                max_cpc_limit=5,
+            )
+
     def test_impression_share(self):
         self.search_results(self._currency())
         self.propose(
@@ -326,11 +381,16 @@ class TestPortfolio(MutateToolTestCase):
 
 class TestSharedBudget(MutateToolTestCase):
 
-    def _campaign(self, cid: int, budget: int, shared: bool = False):
+    def _campaign(
+        self, cid: int, budget: int, shared: bool = False, budget_id=None
+    ):
         return self.row(
             {
                 "campaign.id": cid,
                 "campaign.name": f"Campaign {cid}",
+                "campaign_budget.resource_name": (
+                    f"customers/{CID}/campaignBudgets/{budget_id or cid}"
+                ),
                 "campaign_budget.amount_micros": budget,
                 "campaign_budget.explicitly_shared": shared,
                 "customer.currency_code": "EUR",
@@ -366,6 +426,49 @@ class TestSharedBudget(MutateToolTestCase):
                 campaign_ids=["111"],
                 name="Te groot",
                 daily_budget=50,
+            )
+
+    def test_campaigns_on_one_shared_budget_count_once(self):
+        self.search_results(
+            [
+                self._campaign(111, 10_000_000, True, budget_id=5),
+                self._campaign(222, 10_000_000, True, budget_id=5),
+            ]
+        )
+        with self.assertRaisesRegex(ToolError, "safety limit"):
+            acs.manage_shared_budget(
+                customer_id=CID,
+                campaign_ids=["111", "222"],
+                name="Split",
+                daily_budget=25,
+            )
+
+    def test_no_daily_budget_fails_closed(self):
+        self.search_results([self._campaign(111, 0)])
+        with self.assertRaisesRegex(ToolError, "no daily budget"):
+            acs.manage_shared_budget(
+                customer_id=CID,
+                campaign_ids=["111"],
+                name="X",
+                daily_budget=5,
+            )
+
+    def test_existing_shared_budget_guardrail(self):
+        self.search_results(
+            [self._campaign(111, 10_000_000)],
+            [
+                self.row(
+                    {
+                        "campaign_budget.name": "Groot",
+                        "campaign_budget.amount_micros": 100_000_000,
+                        "campaign_budget.explicitly_shared": True,
+                    }
+                )
+            ],
+        )
+        with self.assertRaisesRegex(ToolError, "safety limit"):
+            acs.manage_shared_budget(
+                customer_id=CID, campaign_ids=["111"], budget_id="77"
             )
 
     def test_existing_must_be_shared(self):

@@ -5505,6 +5505,11 @@
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
+          "allow_removing_targets": {
+            "default": false,
+            "description": "Only after the user agreed: allow moving\ncampaigns whose target CPA / ROAS / max CPC the portfolio\ndoes not keep.",
+            "type": "boolean"
+          },
           "bidding_strategy_id": {
             "anyOf": [
               {

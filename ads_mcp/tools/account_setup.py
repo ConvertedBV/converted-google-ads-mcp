@@ -174,7 +174,9 @@ _PORTFOLIO_FIELDS = (
     "bidding_strategy.maximize_conversions.target_cpa_micros, "
     "bidding_strategy.target_cpa.target_cpa_micros, "
     "bidding_strategy.maximize_conversion_value.target_roas, "
-    "bidding_strategy.target_roas.target_roas"
+    "bidding_strategy.target_roas.target_roas, "
+    "bidding_strategy.target_spend.cpc_bid_ceiling_micros, "
+    "bidding_strategy.target_impression_share.cpc_bid_ceiling_micros"
 )
 
 
@@ -197,7 +199,9 @@ def _fetch_campaigns(
     return found
 
 
-def _portfolio_targets(strategy: Any) -> tuple[int | None, float | None]:
+def _portfolio_targets(
+    strategy: Any,
+) -> tuple[int | None, float | None, int | None]:
     cpa = (
         strategy.maximize_conversions.target_cpa_micros
         or strategy.target_cpa.target_cpa_micros
@@ -208,25 +212,65 @@ def _portfolio_targets(strategy: Any) -> tuple[int | None, float | None]:
         or strategy.target_roas.target_roas
         or None
     )
-    return cpa, roas
+    ceiling = (
+        strategy.target_spend.cpc_bid_ceiling_micros
+        or strategy.target_impression_share.cpc_bid_ceiling_micros
+        or None
+    )
+    return cpa, roas, ceiling
 
 
 def _guard_targets(
-    rows: dict[str, Any], cpa: int | None, roas: float | None
+    rows: dict[str, Any],
+    cpa: int | None,
+    roas: float | None,
+    ceiling: int | None,
+    allow_removing_targets: bool,
 ) -> None:
-    """Applies the per-change safety limit against each campaign's target."""
+    """Applies the per-change safety limit against each campaign's limits.
+
+    A tighter or similar target passes; a much looser one is capped; and a
+    campaign whose target CPA, target ROAS or max CPC would disappear is
+    refused unless the user explicitly allowed dropping it.
+    """
+    dropped = []
     for row in rows.values():
-        kind, value = _current_target(
-            row.campaign, mh.enum_name(row.campaign.bidding_strategy_type)
+        campaign = row.campaign
+        strategy_type = mh.enum_name(campaign.bidding_strategy_type)
+        kind, value = _current_target(campaign, strategy_type)
+        label = f"campaign {campaign.id}"
+        if kind == "cpa" and value:
+            if cpa:
+                mh.enforce_increase_guardrail(
+                    value, cpa, f"target CPA of {label}"
+                )
+            else:
+                dropped.append(f"{label} (target CPA)")
+        if kind == "roas" and value:
+            if roas:
+                mh.enforce_decrease_guardrail(
+                    value, roas, f"target ROAS of {label}"
+                )
+            else:
+                dropped.append(f"{label} (target ROAS)")
+        current_ceiling = (
+            campaign.target_spend.cpc_bid_ceiling_micros
+            if strategy_type == "TARGET_SPEND"
+            else 0
         )
-        if cpa and kind == "cpa" and value:
-            mh.enforce_increase_guardrail(
-                value, cpa, f"target CPA of campaign {row.campaign.id}"
-            )
-        if roas and kind == "roas" and value:
-            mh.enforce_decrease_guardrail(
-                value, roas, f"target ROAS of campaign {row.campaign.id}"
-            )
+        if current_ceiling:
+            if ceiling:
+                mh.enforce_increase_guardrail(
+                    current_ceiling, ceiling, f"max CPC limit of {label}"
+                )
+            else:
+                dropped.append(f"{label} (max CPC limit)")
+    if dropped and not allow_removing_targets:
+        raise ToolError(
+            "Error: Moving these campaigns would drop their current limit: "
+            f"{', '.join(dropped)}. Give the portfolio a comparable target, "
+            "or confirm with the user and pass allow_removing_targets=True."
+        )
 
 
 def _build_portfolio(
@@ -328,6 +372,7 @@ def _build_portfolio(
             f"max CPC {mh.format_money(ceiling, currency)}"
         )
     described["cpa_micros"] = cpa
+    described["ceiling_micros"] = ceiling
     described["roas"] = roas
     return described
 
@@ -347,6 +392,7 @@ def manage_portfolio_bidding_strategy(
     max_cpc_limit: float | None = None,
     impression_share_location: ImpressionShareLocation | None = None,
     impression_share_percent: float | None = None,
+    allow_removing_targets: bool = False,
     login_customer_id: str | int | None = None,
     validate_only: bool = True,
     checksum: str | None = None,
@@ -380,6 +426,9 @@ def manage_portfolio_bidding_strategy(
         impression_share_location: ANYWHERE_ON_PAGE (default), TOP_OF_PAGE
             or ABSOLUTE_TOP_OF_PAGE.
         impression_share_percent: Target impression share, e.g. 90.
+        allow_removing_targets: Only after the user agreed: allow moving
+            campaigns whose target CPA / ROAS / max CPC the portfolio
+            does not keep.
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
         validate_only: True (default) proposes; False commits (needs checksum).
@@ -442,7 +491,7 @@ def manage_portfolio_bidding_strategy(
                 f"Error: Portfolio strategy {existing} was not found."
             )
         portfolio = found[0].bidding_strategy
-        cpa, roas = _portfolio_targets(portfolio)
+        cpa, roas, ceiling = _portfolio_targets(portfolio)
         label = (
             f"{portfolio.name} ({mh.enum_name(portfolio.type_)}, "
             f"{portfolio.campaign_count} campaigns)"
@@ -468,6 +517,7 @@ def manage_portfolio_bidding_strategy(
         )
         operations.append(mutate_op)
         cpa, roas = described.pop("cpa_micros"), described.pop("roas")
+        ceiling = described.pop("ceiling_micros")
         label = clean_name
         change_items.extend(
             pac.build_change_items(
@@ -482,7 +532,7 @@ def manage_portfolio_bidding_strategy(
         )
         payload = {"new": described}
 
-    _guard_targets(rows, cpa, roas)
+    _guard_targets(rows, cpa, roas, ceiling, allow_removing_targets)
     for campaign_id in campaigns:
         row = rows[campaign_id]
         mutate_op = ga_client.get_type("MutateOperation")
@@ -513,6 +563,7 @@ def manage_portfolio_bidding_strategy(
         operation_payload={
             "tool": "manage_portfolio_bidding_strategy",
             "campaign_ids": campaigns,
+            "allow_removing_targets": allow_removing_targets,
             **payload,
         },
         change_items=change_items,
@@ -588,9 +639,25 @@ def manage_shared_budget(
         ga_client,
         cid,
         campaigns,
-        ", campaign_budget.amount_micros, campaign_budget.explicitly_shared",
+        ", campaign_budget.resource_name, campaign_budget.amount_micros, "
+        "campaign_budget.explicitly_shared",
     )
     currency = next(iter(rows.values())).customer.currency_code
+
+    # Baseline: every distinct budget these campaigns use today, counted
+    # once (a shared budget used by several of them counts once).
+    current_budgets = {
+        row.campaign_budget.resource_name: int(
+            row.campaign_budget.amount_micros or 0
+        )
+        for row in rows.values()
+    }
+    current_total = sum(current_budgets.values())
+    if current_total <= 0:
+        raise ToolError(
+            "Error: These campaigns have no daily budget to compare with "
+            "(e.g. a total budget). Set their budgets in Google Ads first."
+        )
 
     operations: list[Any] = []
     change_items: list[pac.ChangeItem] = []
@@ -610,6 +677,15 @@ def manage_shared_budget(
         if not budget.explicitly_shared:
             raise ToolError(f"Error: Budget {existing} is not a shared budget.")
         amount = int(budget.amount_micros)
+        if budget_rn in current_budgets:
+            raise ToolError(
+                f"Error: Some campaigns already use budget {existing}."
+            )
+        enforce_budget_ceiling(amount)
+        # The moved campaigns can now spend up to the shared amount.
+        mh.enforce_increase_guardrail(
+            current_total, amount, "daily budget available to these campaigns"
+        )
         label = (
             f"{budget.name} ({mh.format_money(amount, currency)}/day, "
             f"{budget.reference_count} campaigns)"
@@ -617,11 +693,6 @@ def manage_shared_budget(
     else:
         amount = mh.to_micros(daily_budget, "daily_budget")
         enforce_budget_ceiling(amount)
-        current_total = sum(
-            int(row.campaign_budget.amount_micros or 0)
-            for row in rows.values()
-            if not row.campaign_budget.explicitly_shared
-        )
         mh.enforce_increase_guardrail(
             current_total, amount, "combined daily budget"
         )
