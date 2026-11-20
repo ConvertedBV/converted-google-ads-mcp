@@ -220,8 +220,35 @@ def _portfolio_targets(
     return cpa, roas, ceiling
 
 
+def _current_limits(
+    row: Any, portfolios: dict[str, tuple]
+) -> tuple[int | None, float | None, int | None] | None:
+    """(target CPA, target ROAS, max CPC) a campaign bids with today.
+
+    Campaigns on a portfolio take them from the portfolio; returns None when
+    that portfolio could not be read (callers then fail closed).
+    """
+    campaign = row.campaign
+    if campaign.bidding_strategy:
+        return portfolios.get(campaign.bidding_strategy)
+    strategy_type = mh.enum_name(campaign.bidding_strategy_type)
+    kind, value = _current_target(campaign, strategy_type)
+    ceiling = {
+        "TARGET_SPEND": campaign.target_spend.cpc_bid_ceiling_micros,
+        "TARGET_IMPRESSION_SHARE": (
+            campaign.target_impression_share.cpc_bid_ceiling_micros
+        ),
+    }.get(strategy_type)
+    return (
+        value if kind == "cpa" else None,
+        value if kind == "roas" else None,
+        ceiling or None,
+    )
+
+
 def _guard_targets(
     rows: dict[str, Any],
+    portfolios: dict[str, tuple],
     cpa: int | None,
     roas: float | None,
     ceiling: int | None,
@@ -230,38 +257,36 @@ def _guard_targets(
     """Applies the per-change safety limit against each campaign's limits.
 
     A tighter or similar target passes; a much looser one is capped; and a
-    campaign whose target CPA, target ROAS or max CPC would disappear is
-    refused unless the user explicitly allowed dropping it.
+    campaign whose target CPA, target ROAS or max CPC would disappear, or
+    whose current limits cannot be read, is refused unless the user
+    explicitly allowed it.
     """
     dropped = []
     for row in rows.values():
-        campaign = row.campaign
-        strategy_type = mh.enum_name(campaign.bidding_strategy_type)
-        kind, value = _current_target(campaign, strategy_type)
-        label = f"campaign {campaign.id}"
-        if kind == "cpa" and value:
+        label = f"campaign {row.campaign.id}"
+        limits = _current_limits(row, portfolios)
+        if limits is None:
+            dropped.append(f"{label} (current portfolio unreadable)")
+            continue
+        cur_cpa, cur_roas, cur_ceiling = limits
+        if cur_cpa:
             if cpa:
                 mh.enforce_increase_guardrail(
-                    value, cpa, f"target CPA of {label}"
+                    cur_cpa, cpa, f"target CPA of {label}"
                 )
             else:
                 dropped.append(f"{label} (target CPA)")
-        if kind == "roas" and value:
+        if cur_roas:
             if roas:
                 mh.enforce_decrease_guardrail(
-                    value, roas, f"target ROAS of {label}"
+                    cur_roas, roas, f"target ROAS of {label}"
                 )
             else:
                 dropped.append(f"{label} (target ROAS)")
-        current_ceiling = (
-            campaign.target_spend.cpc_bid_ceiling_micros
-            if strategy_type == "TARGET_SPEND"
-            else 0
-        )
-        if current_ceiling:
+        if cur_ceiling:
             if ceiling:
                 mh.enforce_increase_guardrail(
-                    current_ceiling, ceiling, f"max CPC limit of {label}"
+                    cur_ceiling, ceiling, f"max CPC limit of {label}"
                 )
             else:
                 dropped.append(f"{label} (max CPC limit)")
@@ -474,7 +499,32 @@ def manage_portfolio_bidding_strategy(
         ga_client, cid, "SELECT customer.currency_code FROM customer"
     )
     currency = currency_rows[0].customer.currency_code if currency_rows else ""
-    rows = _fetch_campaigns(ga_client, cid, campaigns) if campaigns else {}
+    rows = (
+        _fetch_campaigns(
+            ga_client,
+            cid,
+            campaigns,
+            ", campaign.target_impression_share.cpc_bid_ceiling_micros",
+        )
+        if campaigns
+        else {}
+    )
+    current_portfolios = sorted(
+        {r.campaign.bidding_strategy for r in rows.values()} - {""}
+    )
+    portfolios: dict[str, tuple] = {}
+    if current_portfolios:
+        for found_row in mh.search(
+            ga_client,
+            cid,
+            f"SELECT {_PORTFOLIO_FIELDS} FROM bidding_strategy WHERE "
+            "bidding_strategy.resource_name IN "
+            f"({mh.quoted_list(current_portfolios)})",
+        ):
+            strategy_row = found_row.bidding_strategy
+            portfolios[strategy_row.resource_name] = _portfolio_targets(
+                strategy_row
+            )
 
     operations: list[Any] = []
     change_items: list[pac.ChangeItem] = []
@@ -532,7 +582,7 @@ def manage_portfolio_bidding_strategy(
         )
         payload = {"new": described}
 
-    _guard_targets(rows, cpa, roas, ceiling, allow_removing_targets)
+    _guard_targets(rows, portfolios, cpa, roas, ceiling, allow_removing_targets)
     for campaign_id in campaigns:
         row = rows[campaign_id]
         mutate_op = ga_client.get_type("MutateOperation")
@@ -640,17 +690,28 @@ def manage_shared_budget(
         cid,
         campaigns,
         ", campaign_budget.resource_name, campaign_budget.amount_micros, "
-        "campaign_budget.explicitly_shared",
+        "campaign_budget.explicitly_shared, "
+        "campaign_budget.reference_count",
     )
     currency = next(iter(rows.values())).customer.currency_code
 
     # Baseline: every distinct budget these campaigns use today, counted
     # once (a shared budget used by several of them counts once).
+    # A budget also used by campaigns outside this move only counts for
+    # the moved campaigns' share of it.
+    moved_refs: dict[str, int] = {}
+    budget_rows: dict[str, Any] = {}
+    for row in rows.values():
+        rn = row.campaign_budget.resource_name
+        moved_refs[rn] = moved_refs.get(rn, 0) + 1
+        budget_rows[rn] = row.campaign_budget
     current_budgets = {
-        row.campaign_budget.resource_name: int(
-            row.campaign_budget.amount_micros or 0
+        rn: int(
+            int(budget.amount_micros or 0)
+            * moved_refs[rn]
+            / max(int(budget.reference_count or 0), moved_refs[rn])
         )
-        for row in rows.values()
+        for rn, budget in budget_rows.items()
     }
     current_total = sum(current_budgets.values())
     if current_total <= 0:

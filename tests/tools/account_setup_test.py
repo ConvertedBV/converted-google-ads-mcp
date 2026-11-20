@@ -492,6 +492,102 @@ class TestSharedBudget(MutateToolTestCase):
             )
 
 
+class TestGuardBaselines(MutateToolTestCase):
+
+    def _portfolio_campaign(self):
+        return self.row(
+            {
+                "campaign.id": 111,
+                "campaign.name": "On portfolio",
+                "campaign.bidding_strategy": f"customers/{CID}/biddingStrategies/5",
+                "campaign.bidding_strategy_type": self.enums.BiddingStrategyTypeEnum.MAXIMIZE_CONVERSIONS,
+                "customer.currency_code": "EUR",
+            }
+        )
+
+    def test_portfolio_target_is_baseline(self):
+        self.search_results(
+            [self.row({"customer.currency_code": "EUR"})],
+            [self._portfolio_campaign()],
+            [
+                self.row(
+                    {
+                        "bidding_strategy.resource_name": f"customers/{CID}/biddingStrategies/5",
+                        "bidding_strategy.maximize_conversions.target_cpa_micros": 20_000_000,
+                    }
+                )
+            ],
+        )
+        with self.assertRaisesRegex(ToolError, r"111 \(target CPA\)"):
+            acs.manage_portfolio_bidding_strategy(
+                customer_id=CID,
+                campaign_ids=["111"],
+                name="Nieuw",
+                strategy="MAXIMIZE_CONVERSIONS",
+            )
+
+    def test_unreadable_portfolio_fails_closed(self):
+        self.search_results(
+            [self.row({"customer.currency_code": "EUR"})],
+            [self._portfolio_campaign()],
+            [],
+        )
+        with self.assertRaisesRegex(ToolError, "portfolio unreadable"):
+            acs.manage_portfolio_bidding_strategy(
+                customer_id=CID,
+                campaign_ids=["111"],
+                name="Nieuw",
+                strategy="MAXIMIZE_CONVERSIONS",
+                target_cpa=20,
+            )
+
+    def test_impression_share_ceiling_is_baseline(self):
+        self.search_results(
+            [self.row({"customer.currency_code": "EUR"})],
+            [
+                self.row(
+                    {
+                        "campaign.id": 222,
+                        "campaign.bidding_strategy_type": self.enums.BiddingStrategyTypeEnum.TARGET_IMPRESSION_SHARE,
+                        "campaign.target_impression_share.cpc_bid_ceiling_micros": 1_000_000,
+                        "customer.currency_code": "EUR",
+                    }
+                )
+            ],
+        )
+        with self.assertRaisesRegex(ToolError, r"222 \(max CPC limit\)"):
+            acs.manage_portfolio_bidding_strategy(
+                customer_id=CID,
+                campaign_ids=["222"],
+                name="Conv",
+                strategy="MAXIMIZE_CONVERSIONS",
+            )
+
+    def test_shared_budget_with_outside_campaigns_is_apportioned(self):
+        # One of four campaigns on a 40/day shared budget counts as 10/day.
+        self.search_results(
+            [
+                self.row(
+                    {
+                        "campaign.id": 111,
+                        "campaign_budget.resource_name": f"customers/{CID}/campaignBudgets/5",
+                        "campaign_budget.amount_micros": 40_000_000,
+                        "campaign_budget.explicitly_shared": True,
+                        "campaign_budget.reference_count": 4,
+                        "customer.currency_code": "EUR",
+                    }
+                )
+            ]
+        )
+        with self.assertRaisesRegex(ToolError, "safety limit"):
+            acs.manage_shared_budget(
+                customer_id=CID,
+                campaign_ids=["111"],
+                name="Eigen",
+                daily_budget=30,
+            )
+
+
 def lead_form(**extra):
     form = {
         "business_name": "FavorCool",
