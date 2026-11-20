@@ -453,6 +453,435 @@
         "destructiveHint": false,
         "readOnlyHint": false
       },
+      "description": "Creates a website remarketing list based on visited page URLs.\n\nVisitors of a page whose URL contains any of `url_contains` (and none of\n`url_excludes`) join the list. The list is pre-filled with matching\nvisitors of the last 30 days. Requires the Google tag on the website.\nUse the returned user list ID with manage_audience_targeting.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional description."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "membership_days": {
+            "default": 30,
+            "description": "How long a visitor stays on the list (1-540).",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Unique list name.",
+            "type": "string"
+          },
+          "url_contains": {
+            "description": "URL fragments, e.g. [\"/airco\", \"/offerte\"] (max 20).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "url_excludes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional URL fragments that exclude a visitor, e.g.\n[\"/bedankt\"] to leave out converters (max 20)."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "url_contains"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_create_remarketing_list",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Create Remarketing List"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Adds or removes audiences on a Search or Display campaign or ad group.\n\nADD: pass user list (remarketing, customer match), user interest\n(in-market, affinity; find IDs on the user_interest resource) and/or\ncustom audience IDs, plus `mode`. OBSERVATION (default) keeps full reach\nand adds audience reporting; TARGETING limits serving to the audiences.\nThe mode applies to all audiences of that campaign or ad group, and the\nproposal shows when it changes. REMOVE: pass `criterion_ids`; only\naudience criteria are removed.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "criterion_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Criterion IDs to remove (REMOVE only)."
+          },
+          "custom_audience_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Custom audience IDs to add."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "entity_id": {
+            "description": "The numeric campaign or ad group ID.",
+            "type": "string"
+          },
+          "level": {
+            "description": "'CAMPAIGN' or 'AD_GROUP'.",
+            "enum": [
+              "CAMPAIGN",
+              "AD_GROUP"
+            ],
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "mode": {
+            "default": "OBSERVATION",
+            "description": "OBSERVATION (default) or TARGETING (ADD only).",
+            "enum": [
+              "OBSERVATION",
+              "TARGETING"
+            ],
+            "type": "string"
+          },
+          "operation": {
+            "description": "'ADD' or 'REMOVE'.",
+            "enum": [
+              "ADD",
+              "REMOVE"
+            ],
+            "type": "string"
+          },
+          "user_interest_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "User interest IDs to add."
+          },
+          "user_list_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "User list IDs to add."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "level",
+          "entity_id",
+          "operation"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_manage_audience_targeting",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Manage Audience Targeting"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Excludes (or re-includes) age ranges and genders in an ad group.\n\nEXCLUDE stops showing ads to those demographics; REMOVE_EXCLUSIONS lifts\nexisting exclusions for the given values. Works for Search, Display and\nDemand Gen ad groups.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "ad_group_id": {
+            "description": "The numeric ad group ID.",
+            "type": "string"
+          },
+          "age_ranges": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "AGE_RANGE_18_24",
+                    "AGE_RANGE_25_34",
+                    "AGE_RANGE_35_44",
+                    "AGE_RANGE_45_54",
+                    "AGE_RANGE_55_64",
+                    "AGE_RANGE_65_UP",
+                    "AGE_RANGE_UNDETERMINED"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "e.g. [\"AGE_RANGE_18_24\"]."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "genders": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "MALE",
+                    "FEMALE",
+                    "UNDETERMINED"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "e.g. [\"UNDETERMINED\"]."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "operation": {
+            "description": "'EXCLUDE' or 'REMOVE_EXCLUSIONS'.",
+            "enum": [
+              "EXCLUDE",
+              "REMOVE_EXCLUSIONS"
+            ],
+            "type": "string"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "ad_group_id",
+          "operation"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_manage_demographic_exclusions",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Manage Demographic Exclusions"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
       "description": "Adds a complete ad group (keywords, negatives, ads) to a Search campaign.\n\nCreated atomically: the ad group, its keywords, ad-group negatives and\n1-3 responsive search ads succeed or fail together.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -701,6 +1130,978 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Campaign Builder Create Ad Group"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Adds an asset group (texts, images, videos, signals) to a PMax campaign.\n\nCreated atomically with all its assets. Images are asset IDs or public\nhttps URLs (checked for the right aspect ratio).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_group": {
+            "description": "The asset group definition.",
+            "properties": {
+              "audience_ids": {
+                "description": "Optional audience IDs (audience resource) as signal.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "descriptions": {
+                "description": "2-5 descriptions, max 90 chars; one must be max 60.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "final_url": {
+                "description": "Landing page URL.",
+                "type": "string"
+              },
+              "headlines": {
+                "description": "3-15 headlines, max 30 chars.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "long_headlines": {
+                "description": "1-5 long headlines, max 90 chars.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "marketing_images": {
+                "description": "Landscape 1.91:1 images: asset IDs or https URLs (1-20).",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "description": "Asset group name.",
+                "type": "string"
+              },
+              "path1": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Display path 1."
+              },
+              "path2": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Display path 2."
+              },
+              "portrait_marketing_images": {
+                "description": "Optional portrait 4:5 images (asset IDs or URLs).",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "search_themes": {
+                "description": "Optional search themes as audience signal (max 25).",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "square_marketing_images": {
+                "description": "Square 1:1 images: asset IDs or https URLs (1-20).",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "youtube_video_ids": {
+                "description": "Optional YouTube video IDs (max 5).",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "final_url",
+              "headlines",
+              "long_headlines",
+              "descriptions",
+              "marketing_images",
+              "square_marketing_images"
+            ],
+            "type": "object"
+          },
+          "campaign_id": {
+            "description": "The numeric ID of a Performance Max campaign.",
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "status": {
+            "default": "ENABLED",
+            "description": "ENABLED (default) or PAUSED.",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ],
+            "type": "string"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "campaign_id",
+          "asset_group"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_builder_create_asset_group",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Builder Create Asset Group"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Builds a complete Demand Gen campaign with image ads in one step.\n\nCreates the budget, the campaign (ad-group-level targeting enabled), and\n1-10 ad groups, each with its own locations/languages, an optional\naudience (without one, optimized targeting is used) and 1-5 multi-asset\nimage ads. PAUSED by default. Images are asset IDs or public https URLs\n(checked: landscape 1.91:1, square 1:1, portrait 4:5, logo 1:1).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "ad_groups": {
+            "description": "1-10 ad groups with targeting and ads.",
+            "items": {
+              "description": "A Demand Gen ad group with its own targeting and ads.",
+              "properties": {
+                "ads": {
+                  "description": "1-5 multi-asset ads.",
+                  "items": {
+                    "description": "A Demand Gen multi-asset (image) ad.",
+                    "properties": {
+                      "business_name": {
+                        "description": "Business name, max 25 chars.",
+                        "type": "string"
+                      },
+                      "call_to_action": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "Optional call to action text, e.g. 'Learn more'."
+                      },
+                      "descriptions": {
+                        "description": "1-5 descriptions, max 90 chars.",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "final_url": {
+                        "description": "Landing page URL.",
+                        "type": "string"
+                      },
+                      "headlines": {
+                        "description": "1-5 headlines, max 40 chars.",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "logo_images": {
+                        "description": "Square 1:1 logos: asset IDs or https URLs (1-5).",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "marketing_images": {
+                        "description": "Landscape 1.91:1 images (asset IDs or URLs).",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "name": {
+                        "description": "Ad name.",
+                        "type": "string"
+                      },
+                      "portrait_marketing_images": {
+                        "description": "Portrait 4:5 images (asset IDs or URLs).",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "square_marketing_images": {
+                        "description": "Square 1:1 images (asset IDs or URLs).",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "final_url",
+                      "headlines",
+                      "descriptions",
+                      "business_name",
+                      "logo_images"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "audience_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Optional audience ID; without one Google's optimized targeting finds the audience."
+                },
+                "language_ids": {
+                  "description": "Language constant IDs.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "location_ids": {
+                  "description": "Geo target constant IDs (at least one).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "name": {
+                  "description": "Ad group name.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "location_ids",
+                "ads"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "bidding_strategy": {
+            "description": "MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE or\nMAXIMIZE_CLICKS.",
+            "enum": [
+              "MAXIMIZE_CONVERSIONS",
+              "MAXIMIZE_CONVERSION_VALUE",
+              "MAXIMIZE_CLICKS",
+              "MANUAL_CPC"
+            ],
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "contains_eu_political_advertising": {
+            "default": false,
+            "description": "Required EU declaration.",
+            "type": "boolean"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "daily_budget": {
+            "description": "Average daily budget in the account currency.",
+            "type": "number"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional end date YYYY-MM-DD."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "max_cpc_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional max CPC (MAXIMIZE_CLICKS)."
+          },
+          "name": {
+            "description": "Campaign name.",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional start date YYYY-MM-DD."
+          },
+          "status": {
+            "default": "PAUSED",
+            "description": "PAUSED (default) or ENABLED.",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ],
+            "type": "string"
+          },
+          "target_cpa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional target CPA (MAXIMIZE_CONVERSIONS)."
+          },
+          "target_roas_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional target ROAS (MAXIMIZE_CONVERSION_VALUE)."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "daily_budget",
+          "bidding_strategy",
+          "ad_groups"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_builder_create_demand_gen_campaign",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Builder Create Demand Gen Campaign"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Uploads images from public https URLs as image assets.\n\nUse this to prepare images (e.g. from the client's website) before\nbuilding or for reuse; the PMax and Demand Gen builders also accept URLs\ndirectly. With a `role`, the aspect ratio and minimum size are checked\n(MARKETING 1.91:1, SQUARE 1:1, PORTRAIT 4:5, LOGO 1:1, LANDSCAPE_LOGO\n4:1). JPEG, PNG and GIF up to 5 MB, max 10 per call.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "images": {
+            "description": "Images, each {\"url\", \"name\", \"role\"}.",
+            "items": {
+              "description": "An image to upload as an asset.",
+              "properties": {
+                "name": {
+                  "description": "Asset name.",
+                  "type": "string"
+                },
+                "role": {
+                  "anyOf": [
+                    {
+                      "description": "How an image is used; determines the required aspect ratio.",
+                      "enum": [
+                        "MARKETING",
+                        "SQUARE",
+                        "PORTRAIT",
+                        "LOGO",
+                        "LANDSCAPE_LOGO"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Optional intended use to validate the aspect ratio: MARKETING, SQUARE, PORTRAIT, LOGO or LANDSCAPE_LOGO."
+                },
+                "url": {
+                  "description": "Public https URL of a JPEG, PNG or GIF.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "name"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "images"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_builder_create_image_assets",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Builder Create Image Assets"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Builds a complete Performance Max campaign in one atomic step.\n\nCreates the budget, the campaign (brand guidelines on: business name and\nlogo at campaign level), location/language targeting, and 1-10 asset\ngroups with texts, images, optional YouTube videos and audience signals\n(search themes, audiences). PAUSED by default for review.\n\nImages are asset IDs or public https URLs (fetched and checked: landscape\n1.91:1, square 1:1, portrait 4:5, logo 1:1). Check get_conversion_setup\nfirst: PMax only supports MAXIMIZE_CONVERSIONS (optional target CPA) and\nMAXIMIZE_CONVERSION_VALUE (optional target ROAS).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_groups": {
+            "description": "1-10 asset groups.",
+            "items": {
+              "description": "A Performance Max asset group.",
+              "properties": {
+                "audience_ids": {
+                  "description": "Optional audience IDs (audience resource) as signal.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "descriptions": {
+                  "description": "2-5 descriptions, max 90 chars; one must be max 60.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "final_url": {
+                  "description": "Landing page URL.",
+                  "type": "string"
+                },
+                "headlines": {
+                  "description": "3-15 headlines, max 30 chars.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "long_headlines": {
+                  "description": "1-5 long headlines, max 90 chars.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "marketing_images": {
+                  "description": "Landscape 1.91:1 images: asset IDs or https URLs (1-20).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "name": {
+                  "description": "Asset group name.",
+                  "type": "string"
+                },
+                "path1": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Display path 1."
+                },
+                "path2": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Display path 2."
+                },
+                "portrait_marketing_images": {
+                  "description": "Optional portrait 4:5 images (asset IDs or URLs).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "search_themes": {
+                  "description": "Optional search themes as audience signal (max 25).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "square_marketing_images": {
+                  "description": "Square 1:1 images: asset IDs or https URLs (1-20).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "youtube_video_ids": {
+                  "description": "Optional YouTube video IDs (max 5).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "name",
+                "final_url",
+                "headlines",
+                "long_headlines",
+                "descriptions",
+                "marketing_images",
+                "square_marketing_images"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "bidding_strategy": {
+            "description": "MAXIMIZE_CONVERSIONS or MAXIMIZE_CONVERSION_VALUE.",
+            "enum": [
+              "MAXIMIZE_CONVERSIONS",
+              "MAXIMIZE_CONVERSION_VALUE",
+              "MAXIMIZE_CLICKS",
+              "MANUAL_CPC"
+            ],
+            "type": "string"
+          },
+          "business_name": {
+            "description": "Business name (max 25 characters).",
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "contains_eu_political_advertising": {
+            "default": false,
+            "description": "Required EU declaration.",
+            "type": "boolean"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "daily_budget": {
+            "description": "Average daily budget in the account currency.",
+            "type": "number"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional end date YYYY-MM-DD."
+          },
+          "excluded_location_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Geo target constant IDs to exclude."
+          },
+          "landscape_logo_image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional 4:1 logo: asset ID or https URL."
+          },
+          "language_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Language constant IDs; empty = all languages."
+          },
+          "location_ids": {
+            "description": "Geo target constant IDs (at least one).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "location_targeting": {
+            "default": "PRESENCE",
+            "description": "PRESENCE (default) or PRESENCE_OR_INTEREST.",
+            "enum": [
+              "PRESENCE",
+              "PRESENCE_OR_INTEREST"
+            ],
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "logo_image": {
+            "description": "Square logo: asset ID or https URL.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Campaign name.",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional start date YYYY-MM-DD."
+          },
+          "status": {
+            "default": "PAUSED",
+            "description": "PAUSED (default) or ENABLED.",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ],
+            "type": "string"
+          },
+          "target_cpa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional target CPA (MAXIMIZE_CONVERSIONS)."
+          },
+          "target_roas_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional target ROAS in percent."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "daily_budget",
+          "bidding_strategy",
+          "location_ids",
+          "business_name",
+          "logo_image",
+          "asset_groups"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_builder_create_performance_max_campaign",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Builder Create Performance Max Campaign"
     },
     {
       "_meta": {
@@ -1805,6 +3206,166 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Campaign Management Link Assets"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Adds or removes account-wide exclusions for brand safety.\n\nADD excludes websites/apps placements (domains such as 'example.com' or\nURLs without scheme), YouTube channels (IDs starting with 'UC') and\nsensitive content labels for every campaign in the account. REMOVE\ntakes `criterion_ids` from the customer_negative_criterion resource.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "content_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "Content categories that can be excluded account-wide.",
+                  "enum": [
+                    "SEXUALLY_SUGGESTIVE",
+                    "BELOW_THE_FOLD",
+                    "PARKED_DOMAIN",
+                    "JUVENILE",
+                    "PROFANITY",
+                    "TRAGEDY",
+                    "VIDEO",
+                    "EMBEDDED_VIDEO",
+                    "LIVE_STREAMING_VIDEO",
+                    "SOCIAL_ISSUES"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Content categories to exclude."
+          },
+          "criterion_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Exclusion IDs to remove (REMOVE only)."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "operation": {
+            "description": "'ADD' or 'REMOVE'.",
+            "enum": [
+              "ADD",
+              "REMOVE"
+            ],
+            "type": "string"
+          },
+          "placements": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Domains or URLs to exclude (max 200)."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          },
+          "youtube_channel_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "YouTube channel IDs to exclude."
+          }
+        },
+        "required": [
+          "customer_id",
+          "operation"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_manage_account_exclusions",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Manage Account Exclusions"
     },
     {
       "_meta": {
@@ -3882,6 +5443,228 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Customers List Accessible Customers"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Creates an A/B experiment for a Search or Display campaign.\n\nThe treatment arm gets `traffic_split_percent` of the traffic and a draft\ncopy of the campaign; the result returns its campaign ID. Change that\ndraft (bidding, keywords, ads, ...) with the campaign_management tools,\nthen start the test with manage_experiment SCHEDULE. Nothing serves\nuntil it is scheduled. The dry run validates the experiment; the arms\nare validated when committing (if they fail, the experiment is removed).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "base_campaign_id": {
+            "description": "The campaign to test against.",
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional description of the hypothesis."
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional end date YYYY-MM-DD."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "name": {
+            "description": "Unique experiment name.",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional start date YYYY-MM-DD (default: when scheduled)."
+          },
+          "traffic_split_percent": {
+            "default": 50,
+            "description": "Share of traffic for the treatment (1-99).",
+            "type": "integer"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "base_campaign_id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "name": "experiments_create_experiment",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Experiments Create Experiment"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Schedules, ends or promotes an experiment.\n\nSCHEDULE starts the test (Google creates the treatment campaign in the\nbackground). END stops it without changing the base campaign. PROMOTE\napplies the treatment's changes to the base campaign and ends the test;\nit cannot be undone. Find experiments with the search tool on the\nexperiment resource.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "'SCHEDULE', 'END' or 'PROMOTE'.",
+            "enum": [
+              "SCHEDULE",
+              "END",
+              "PROMOTE"
+            ],
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "experiment_id": {
+            "description": "The numeric experiment ID.",
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "experiment_id",
+          "action"
+        ],
+        "type": "object"
+      },
+      "name": "experiments_manage_experiment",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Experiments Manage Experiment"
     },
     {
       "_meta": {

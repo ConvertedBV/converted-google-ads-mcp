@@ -34,7 +34,9 @@ SIZES = {
 
 def fake_fetch(url):
     width, height = SIZES[url]
-    return ia.FetchedImage(url, f"{url}-bytes".encode(), "IMAGE_PNG", width, height)
+    return ia.FetchedImage(
+        url, f"{url}-bytes".encode(), "IMAGE_PNG", width, height
+    )
 
 
 def group(name="Airco", **extra):
@@ -43,7 +45,10 @@ def group(name="Airco", **extra):
         "final_url": "https://favorcool.be/airco",
         "headlines": ["Airco laten plaatsen", "Klaar vóór de zomer", "Erkend"],
         "long_headlines": ["Airco door eigen installateurs, vaste prijs"],
-        "descriptions": ["Vaste prijs.", "Plan vandaag je gratis adviesgesprek in."],
+        "descriptions": [
+            "Vaste prijs.",
+            "Plan vandaag je gratis adviesgesprek in.",
+        ],
         "marketing_images": ["https://favorcool.be/hero.png"],
         "square_marketing_images": ["https://favorcool.be/square.png", "555"],
         "portrait_marketing_images": ["https://favorcool.be/portrait.png"],
@@ -59,7 +64,9 @@ class AssetCampaignTestCase(MutateToolTestCase):
 
     def setUp(self):
         super().setUp()
-        patcher = patch("ads_mcp.image_assets.fetch_image", side_effect=fake_fetch)
+        patcher = patch(
+            "ads_mcp.image_assets.fetch_image", side_effect=fake_fetch
+        )
         self.fetch = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -113,41 +120,60 @@ class TestPerformanceMax(AssetCampaignTestCase):
 
     def test_full_build(self):
         self.search_results(*self.lookups(), *self.lookups())
-        proposal = self.propose(ac.create_performance_max_campaign, **self._kwargs())
+        proposal = self.propose(
+            ac.create_performance_max_campaign, **self._kwargs()
+        )
         ops = self.request("GoogleAdsService", "mutate").mutate_operations
         kinds = self.kinds(ops)
 
-        self.assertEqual(kinds[:4], [
-            "campaign_budget_operation",
-            "campaign_operation",
-            "campaign_criterion_operation",
-            "campaign_criterion_operation",
-        ])
+        self.assertEqual(
+            kinds[:4],
+            [
+                "campaign_budget_operation",
+                "campaign_operation",
+                "campaign_criterion_operation",
+                "campaign_criterion_operation",
+            ],
+        )
         campaign = ops[1].campaign_operation.create
-        self.assertEqual(campaign.advertising_channel_type.name, "PERFORMANCE_MAX")
+        self.assertEqual(
+            campaign.advertising_channel_type.name, "PERFORMANCE_MAX"
+        )
         self.assertEqual(campaign.status.name, "PAUSED")
         self.assertTrue(campaign.brand_guidelines_enabled)
-        self.assertEqual(campaign.maximize_conversions.target_cpa_micros, 35_000_000)
-        self.assertFalse(ops[0].campaign_budget_operation.create.explicitly_shared)
+        self.assertEqual(
+            campaign.maximize_conversions.target_cpa_micros, 35_000_000
+        )
+        self.assertFalse(
+            ops[0].campaign_budget_operation.create.explicitly_shared
+        )
 
         # All assets are created before anything links to them.
         first_link = min(
             kinds.index("campaign_asset_operation"),
             kinds.index("asset_group_operation"),
         )
-        self.assertTrue(all(k == "asset_operation" for k in kinds[4:first_link]))
+        self.assertTrue(
+            all(k == "asset_operation" for k in kinds[4:first_link])
+        )
         assets = [op.asset_operation.create for op in ops[4:first_link]]
         texts = [a.text_asset.text for a in assets if a.text_asset.text]
         self.assertIn("FavorCool", texts)
         self.assertEqual(len(texts), len(set(texts)))  # deduplicated
         images = [a for a in assets if a.image_asset.data]
         self.assertEqual(len(images), 4)  # hero, square, portrait, logo
-        self.assertEqual(images[0].image_asset.mime_type, self.enums.MimeTypeEnum.IMAGE_PNG)
+        self.assertEqual(
+            images[0].image_asset.mime_type, self.enums.MimeTypeEnum.IMAGE_PNG
+        )
         self.assertEqual(
             sum(1 for a in assets if a.youtube_video_asset.youtube_video_id), 1
         )
 
-        brand = [op.campaign_asset_operation.create for op in ops if self.kinds([op])[0] == "campaign_asset_operation"]
+        brand = [
+            op.campaign_asset_operation.create
+            for op in ops
+            if self.kinds([op])[0] == "campaign_asset_operation"
+        ]
         self.assertEqual(
             sorted(b.field_type.name for b in brand), ["BUSINESS_NAME", "LOGO"]
         )
@@ -156,7 +182,9 @@ class TestPerformanceMax(AssetCampaignTestCase):
             for op in ops
             if self.kinds([op])[0] == "asset_group_operation"
         )
-        self.assertEqual(list(asset_group.final_urls), ["https://favorcool.be/airco"])
+        self.assertEqual(
+            list(asset_group.final_urls), ["https://favorcool.be/airco"]
+        )
         links = [
             op.asset_group_asset_operation.create
             for op in ops
@@ -176,52 +204,73 @@ class TestPerformanceMax(AssetCampaignTestCase):
             [s.search_theme.text for s in signals if s.search_theme.text],
             ["airco plaatsen", "warmtepomp airco"],
         )
-        self.assertEqual(signals[-1].audience.audience, f"customers/{CID}/audiences/77")
+        self.assertEqual(
+            signals[-1].audience.audience, f"customers/{CID}/audiences/77"
+        )
 
         values = [i["value_readable"] for i in proposal["change_items"]]
         self.assertIn("40.00 EUR", values)
         self.assertIn("Belgium (2056)", values)
 
-        result = self.commit(ac.create_performance_max_campaign, proposal, **self._kwargs())
+        result = self.commit(
+            ac.create_performance_max_campaign, proposal, **self._kwargs()
+        )
         self.assertIn("Created Performance Max campaign", result)
 
     def test_changed_image_invalidates_checksum(self):
         self.search_results(*self.lookups(), *self.lookups())
-        proposal = self.propose(ac.create_performance_max_campaign, **self._kwargs())
+        proposal = self.propose(
+            ac.create_performance_max_campaign, **self._kwargs()
+        )
 
         def changed(url):
             image = fake_fetch(url)
-            return ia.FetchedImage(url, b"other-bytes", image.mime, image.width, image.height)
+            return ia.FetchedImage(
+                url, b"other-bytes", image.mime, image.width, image.height
+            )
 
         self.fetch.side_effect = changed
         with self.assertRaisesRegex(ToolError, "mismatched checksum"):
-            self.commit(ac.create_performance_max_campaign, proposal, **self._kwargs())
+            self.commit(
+                ac.create_performance_max_campaign, proposal, **self._kwargs()
+            )
 
     def test_validation(self):
         cases = {
             "supports MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE": {
-                "bidding_strategy": "MAXIMIZE_CLICKS", "target_cpa": None
+                "bidding_strategy": "MAXIMIZE_CLICKS",
+                "target_cpa": None,
             },
             "at least one description of max 60": {
                 "asset_groups": [group(descriptions=["x" * 61, "y" * 70])]
             },
-            "needs 3-15 headlines": {"asset_groups": [group(headlines=["Een"])]},
+            "needs 3-15 headlines": {
+                "asset_groups": [group(headlines=["Een"])]
+            },
             "'marketing_images' needs 1-20": {
                 "asset_groups": [group(marketing_images=[])]
             },
-            "Asset group names must be unique": {"asset_groups": [group(), group()]},
+            "Asset group names must be unique": {
+                "asset_groups": [group(), group()]
+            },
         }
         for message, override in cases.items():
             with self.subTest(message=message):
                 with self.assertRaisesRegex(ToolError, message):
-                    ac.create_performance_max_campaign(**self._kwargs(**override))
+                    ac.create_performance_max_campaign(
+                        **self._kwargs(**override)
+                    )
 
     def test_wrong_aspect_ratio_is_caught_before_the_api(self):
         self.search_results(*self.lookups())
         with self.assertRaisesRegex(ToolError, "landscape 1.91:1"):
             ac.create_performance_max_campaign(
                 **self._kwargs(
-                    asset_groups=[group(marketing_images=["https://favorcool.be/square.png"])]
+                    asset_groups=[
+                        group(
+                            marketing_images=["https://favorcool.be/square.png"]
+                        )
+                    ]
                 )
             )
         self.service("GoogleAdsService").mutate.assert_not_called()
@@ -253,7 +302,9 @@ class TestAssetGroup(AssetCampaignTestCase):
         )
         self.fetch.assert_not_called()
         ops = self.request("GoogleAdsService", "mutate").mutate_operations
-        group_op = next(op for op in ops if self.kinds([op])[0] == "asset_group_operation")
+        group_op = next(
+            op for op in ops if self.kinds([op])[0] == "asset_group_operation"
+        )
         self.assertEqual(
             group_op.asset_group_operation.create.campaign,
             f"customers/{CID}/campaigns/111",
@@ -270,7 +321,9 @@ class TestAssetGroup(AssetCampaignTestCase):
             ]
         )
         with self.assertRaisesRegex(ToolError, "not a Performance Max"):
-            ac.create_asset_group(customer_id=CID, campaign_id="111", asset_group=group())
+            ac.create_asset_group(
+                customer_id=CID, campaign_id="111", asset_group=group()
+            )
 
 
 class TestDemandGen(AssetCampaignTestCase):
@@ -315,7 +368,9 @@ class TestDemandGen(AssetCampaignTestCase):
         kinds = self.kinds(ops)
         campaign = ops[1].campaign_operation.create
         self.assertEqual(campaign.advertising_channel_type.name, "DEMAND_GEN")
-        self.assertTrue(campaign.demand_gen_campaign_settings.upgraded_targeting)
+        self.assertTrue(
+            campaign.demand_gen_campaign_settings.upgraded_targeting
+        )
         self.assertNotIn("campaign_criterion_operation", kinds)
         criteria = [
             op.ad_group_criterion_operation.create
@@ -334,12 +389,16 @@ class TestDemandGen(AssetCampaignTestCase):
             if self.kinds([op])[0] == "ad_group_ad_operation"
         )
         info = ad.demand_gen_multi_asset_ad
-        self.assertEqual(info.headlines[0].text, "Nu bestellen, klaar vóór de zomer")
+        self.assertEqual(
+            info.headlines[0].text, "Nu bestellen, klaar vóór de zomer"
+        )
         self.assertEqual(info.business_name, "FavorCool")
         self.assertEqual(info.call_to_action_text, "Learn more")
         self.assertEqual(len(info.logo_images), 1)
         self.assertEqual(len(info.marketing_images), 1)
-        self.assertTrue(info.logo_images[0].asset.startswith(f"customers/{CID}/assets/-"))
+        self.assertTrue(
+            info.logo_images[0].asset.startswith(f"customers/{CID}/assets/-")
+        )
 
     def test_needs_a_landscape_or_square_image(self):
         with self.assertRaisesRegex(ToolError, "landscape or square image"):
@@ -349,7 +408,12 @@ class TestDemandGen(AssetCampaignTestCase):
                         {
                             "name": "A",
                             "location_ids": ["2056"],
-                            "ads": [self._ad(marketing_images=[], square_marketing_images=[])],
+                            "ads": [
+                                self._ad(
+                                    marketing_images=[],
+                                    square_marketing_images=[],
+                                )
+                            ],
                         }
                     ]
                 )
@@ -376,16 +440,32 @@ class TestCreateImageAssets(AssetCampaignTestCase):
         proposal = self.propose(
             ac.create_image_assets,
             customer_id=CID,
-            images=[{"url": "https://favorcool.be/logo.png", "name": "Logo", "role": "LOGO"}],
+            images=[
+                {
+                    "url": "https://favorcool.be/logo.png",
+                    "name": "Logo",
+                    "role": "LOGO",
+                }
+            ],
         )
-        self.assertEqual(proposal["change_items"][0]["value_readable"], "512x512 PNG (LOGO)")
+        self.assertEqual(
+            proposal["change_items"][0]["value_readable"], "512x512 PNG (LOGO)"
+        )
         op = self.request("AssetService", "mutate_assets").operations[0]
         self.assertEqual(op.create.name, "Logo")
-        self.assertEqual(op.create.image_asset.mime_type, self.enums.MimeTypeEnum.IMAGE_PNG)
+        self.assertEqual(
+            op.create.image_asset.mime_type, self.enums.MimeTypeEnum.IMAGE_PNG
+        )
         with self.assertRaisesRegex(ToolError, "portrait 4:5"):
             ac.create_image_assets(
                 customer_id=CID,
-                images=[{"url": "https://favorcool.be/logo.png", "name": "X", "role": "PORTRAIT"}],
+                images=[
+                    {
+                        "url": "https://favorcool.be/logo.png",
+                        "name": "X",
+                        "role": "PORTRAIT",
+                    }
+                ],
             )
 
 
