@@ -262,6 +262,44 @@ _INCREASE_GUARDED = (
 )
 # Fields whose lower value means more aggressive bidding.
 _DECREASE_GUARDED = ("target_roas",)
+# Limits whose removal loosens bidding; restoring "no limit" is refused.
+_LIMIT_LEAVES = ("target_cpa_micros", "target_roas", "cpc_bid_ceiling_micros")
+# Spend fields that may not come back from zero through an undo.
+_NO_RESTORE_FROM_ZERO = ("amount_micros", "cpc_bid_micros", "cpm_bid_micros")
+
+_COMMON = ("status", "name", "tracking_url_template", "final_url_suffix")
+# Only these fields can be restored; everything else that affects spend
+# (budget swaps, strategy switches, total budgets) has its own guarded tool.
+_ALLOWED_PATHS = {
+    "CAMPAIGN": _COMMON
+    + (
+        "start_date_time",
+        "end_date_time",
+        "network_settings.target_search_network",
+        "network_settings.target_partner_search_network",
+        "network_settings.target_content_network",
+        "maximize_conversions.target_cpa_micros",
+        "maximize_conversion_value.target_roas",
+        "target_cpa.target_cpa_micros",
+        "target_roas.target_roas",
+        "target_spend.cpc_bid_ceiling_micros",
+        "geo_target_type_setting.positive_geo_target_type",
+        "geo_target_type_setting.negative_geo_target_type",
+    ),
+    "AD_GROUP": _COMMON
+    + ("cpc_bid_micros", "cpm_bid_micros", "target_cpa_micros", "target_roas"),
+    "AD_GROUP_AD": ("status",),
+    "AD_GROUP_CRITERION": (
+        "status",
+        "cpc_bid_micros",
+        "final_urls",
+        "tracking_url_template",
+        "final_url_suffix",
+    ),
+    "CAMPAIGN_CRITERION": ("bid_modifier",),
+    "CAMPAIGN_BUDGET": ("amount_micros", "name"),
+    "AD_GROUP_BID_MODIFIER": ("bid_modifier",),
+}
 
 
 @campaign_management_mcp.tool(
@@ -346,6 +384,13 @@ def revert_change(
     if not paths:
         raise ToolError("Error: This change has no fields to restore.")
     target_rn = event.change_resource_name
+    unsupported = [p for p in paths if p not in _ALLOWED_PATHS[resource_type]]
+    if unsupported:
+        raise ToolError(
+            "Error: Undo does not restore these fields: "
+            f"{', '.join(unsupported)}. Use the specific tool (budget, "
+            "bidding, targeting), which applies its own safety checks."
+        )
 
     try:
         current_rows = mh.search(
@@ -378,6 +423,19 @@ def revert_change(
             continue
         old_value = _get(old, path)
         leaf = path.rsplit(".", 1)[-1]
+        if leaf in _LIMIT_LEAVES and now_value and not old_value:
+            raise ToolError(
+                f"Error: Undoing this would remove the {leaf} limit. Change "
+                "bidding with update_campaign_bidding instead."
+            )
+        if leaf in _NO_RESTORE_FROM_ZERO and not now_value and old_value:
+            raise ToolError(
+                f"Error: {leaf} is 0 now; set it with the specific tool "
+                "instead of an undo."
+            )
+        if leaf == "bid_modifier":
+            # An excluded segment (0) counts as neutral (1.0) as baseline.
+            now_value = now_value or 1.0
         if leaf in _INCREASE_GUARDED and isinstance(now_value, (int, float)):
             mh.enforce_increase_guardrail(
                 float(now_value or 0), float(old_value or 0), leaf

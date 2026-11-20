@@ -181,6 +181,68 @@ class TestRevertChange(MutateToolTestCase):
                 customer_id=CID, change_id="customers/999/changeEvents/1"
             )
 
+    def _campaign_event(self, path, old, new):
+        values = {
+            "change_event.resource_name": CHANGE_ID,
+            "change_event.change_resource_type": (
+                self.enums.ChangeEventResourceTypeEnum.CAMPAIGN
+            ),
+            "change_event.change_resource_name": CAMPAIGN_RN,
+            "change_event.resource_change_operation": (
+                self.enums.ResourceChangeOperationEnum.UPDATE
+            ),
+        }
+        if old is not None:
+            values[f"change_event.old_resource.campaign.{path}"] = old
+        if new is not None:
+            values[f"change_event.new_resource.campaign.{path}"] = new
+        row = self.row(values)
+        row.change_event.changed_fields = field_mask_pb2.FieldMask(paths=[path])
+        return row
+
+    def test_unlisted_field_refused(self):
+        self.search_results(
+            [self._campaign_event("campaign_budget", BUDGET_RN, None)]
+        )
+        with self.assertRaisesRegex(
+            ToolError, "does not restore.*campaign_budget"
+        ):
+            rm.revert_change(customer_id=CID, change_id=CHANGE_ID)
+        self.assertEqual(len(self.queries()), 1)
+
+    def test_removing_target_refused(self):
+        path = "maximize_conversions.target_cpa_micros"
+        self.search_results(
+            [self._campaign_event(path, None, 40_000_000)],
+            [self.row({f"campaign.{path}": 40_000_000})],
+        )
+        with self.assertRaisesRegex(ToolError, "remove the target_cpa_micros"):
+            rm.revert_change(customer_id=CID, change_id=CHANGE_ID)
+
+    def test_restore_status(self):
+        self.search_results(
+            [
+                self._campaign_event(
+                    "status",
+                    self.enums.CampaignStatusEnum.PAUSED,
+                    self.enums.CampaignStatusEnum.ENABLED,
+                )
+            ],
+            [
+                self.row(
+                    {"campaign.status": self.enums.CampaignStatusEnum.ENABLED}
+                )
+            ],
+        )
+        proposal = self.propose(
+            rm.revert_change, customer_id=CID, change_id=CHANGE_ID
+        )
+        self.assertEqual(
+            self.items(proposal)["status"]["value_readable"], "PAUSED"
+        )
+        op = self.request("GoogleAdsService", "mutate").mutate_operations[0]
+        self.assertEqual(op.campaign_operation.update.status.name, "PAUSED")
+
 
 if __name__ == "__main__":
     unittest.main()
