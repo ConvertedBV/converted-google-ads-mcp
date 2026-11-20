@@ -243,6 +243,15 @@ class TestRevertChange(MutateToolTestCase):
         op = self.request("GoogleAdsService", "mutate").mutate_operations[0]
         self.assertEqual(op.campaign_operation.update.status.name, "PAUSED")
 
+    def test_inherited_target_not_restored(self):
+        path = "maximize_conversions.target_cpa_micros"
+        self.search_results(
+            [self._campaign_event(path, 90_000_000, None)],
+            [self.row({f"campaign.{path}": 0})],
+        )
+        with self.assertRaisesRegex(ToolError, "is 0 now"):
+            rm.revert_change(customer_id=CID, change_id=CHANGE_ID)
+
 
 if __name__ == "__main__":
     unittest.main()

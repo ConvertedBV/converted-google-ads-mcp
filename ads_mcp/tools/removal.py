@@ -264,8 +264,6 @@ _INCREASE_GUARDED = (
 _DECREASE_GUARDED = ("target_roas",)
 # Limits whose removal loosens bidding; restoring "no limit" is refused.
 _LIMIT_LEAVES = ("target_cpa_micros", "target_roas", "cpc_bid_ceiling_micros")
-# Spend fields that may not come back from zero through an undo.
-_NO_RESTORE_FROM_ZERO = ("amount_micros", "cpc_bid_micros", "cpm_bid_micros")
 
 _COMMON = ("status", "name", "tracking_url_template", "final_url_suffix")
 # Only these fields can be restored; everything else that affects spend
@@ -428,7 +426,14 @@ def revert_change(
                 f"Error: Undoing this would remove the {leaf} limit. Change "
                 "bidding with update_campaign_bidding instead."
             )
-        if leaf in _NO_RESTORE_FROM_ZERO and not now_value and old_value:
+        if (
+            leaf in _INCREASE_GUARDED + _DECREASE_GUARDED
+            and leaf != "bid_modifier"
+            and not now_value
+            and old_value
+        ):
+            # 0 = unset: the entity uses an inherited (campaign) value, so
+            # the guardrail has no baseline; the specific tool has one.
             raise ToolError(
                 f"Error: {leaf} is 0 now; set it with the specific tool "
                 "instead of an undo."
