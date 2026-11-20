@@ -137,7 +137,7 @@ class TestDownload(unittest.TestCase):
 
     def _connection(self, status=200, chunks=(), location=None):
         response = MagicMock(status=status)
-        response.read.side_effect = list(chunks) + [b""]
+        response.read1.side_effect = list(chunks) + [b""]
         response.getheader.return_value = location
         connection = MagicMock()
         connection.getresponse.return_value = response
@@ -170,10 +170,22 @@ class TestDownload(unittest.TestCase):
             self._download(self._connection(chunks=[chunk] * 6))
 
     def test_overall_deadline(self):
-        clock = iter([0, 1, ia.FETCH_TIMEOUT_SECONDS + 1])
-        with patch("time.monotonic", side_effect=lambda: next(clock)):
+        # Start, connect, request, response and first chunk are within time;
+        # the second chunk is past the 15 second deadline.
+        times = iter([0, 1, 2, 3, 4, ia.FETCH_TIMEOUT_SECONDS + 1])
+        with patch("time.monotonic", side_effect=lambda: next(times, 999)):
             with self.assertRaisesRegex(ToolError, "took longer than"):
                 self._download(self._connection(chunks=[b"a", b"b", b"c"]))
+
+    def test_socket_timeout_tracks_remaining_time(self):
+        connection = self._connection(chunks=[b"ab"])
+        times = iter([0, 5, 10, 12, 14])
+        with patch("time.monotonic", side_effect=lambda: next(times, 14)):
+            self._download(connection)
+        timeouts = [
+            c.args[0] for c in connection.sock.settimeout.call_args_list
+        ]
+        self.assertEqual(timeouts[:3], [5, 3, 1])
 
 
 if __name__ == "__main__":

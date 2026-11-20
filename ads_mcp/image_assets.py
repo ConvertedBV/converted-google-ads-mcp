@@ -123,17 +123,34 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
 
 
 def _download(hostname: str, ip: str, port: int, path: str, url: str) -> bytes:
-    """Downloads with one overall deadline and a size cap; no redirects."""
+    """Downloads with one overall deadline and a size cap; no redirects.
+
+    The deadline is enforced at the socket level: before every network step
+    the socket timeout is set to the remaining time, and reads use read1(),
+    which returns as soon as any data is available, so a server that drips
+    bytes slowly cannot stretch the download.
+    """
     deadline = time.monotonic() + FETCH_TIMEOUT_SECONDS
-    connection = _PinnedHTTPSConnection(
-        hostname, ip, port, FETCH_TIMEOUT_SECONDS
-    )
+
+    def _remaining() -> float:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise ToolError(
+                f"Error: Downloading '{url}' took longer than "
+                f"{FETCH_TIMEOUT_SECONDS} seconds."
+            )
+        return max(0.1, left)
+
+    connection = _PinnedHTTPSConnection(hostname, ip, port, _remaining())
     try:
+        connection.connect()
+        connection.sock.settimeout(_remaining())
         connection.request(
             "GET",
             path,
             headers={"User-Agent": _USER_AGENT, "Accept": "image/*"},
         )
+        connection.sock.settimeout(_remaining())
         response = connection.getresponse()
         if 300 <= response.status < 400:
             raise ToolError(
@@ -145,12 +162,8 @@ def _download(hostname: str, ip: str, port: int, path: str, url: str) -> bytes:
         chunks: list[bytes] = []
         size = 0
         while True:
-            if time.monotonic() > deadline:
-                raise ToolError(
-                    f"Error: Downloading '{url}' took longer than "
-                    f"{FETCH_TIMEOUT_SECONDS} seconds."
-                )
-            chunk = response.read(64 * 1024)
+            connection.sock.settimeout(_remaining())
+            chunk = response.read1(64 * 1024)
             if not chunk:
                 break
             size += len(chunk)
