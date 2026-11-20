@@ -38,6 +38,18 @@ RSA_PATH_MAX_CHARS = 15
 
 _CRITERION_TOKEN_RE = re.compile(r"^[A-Za-z0-9_~=\-]+$")
 _TIME_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
+# Dynamic insertions such as {KeyWord:Airco}, {LOCATION(City):Gent} or
+# {CUSTOMIZER.price:99}. Google counts only the default text after ':'.
+_DYNAMIC_RE = re.compile(r"\{([^{}:]+)(?::([^{}]*))?\}")
+
+
+def display_length(text: str) -> int:
+    """Length as Google Ads counts it for ad text limits.
+
+    Dynamic insertions count as their default text; insertions without a
+    default (e.g. countdowns) are left for the API dry run to judge.
+    """
+    return len(_DYNAMIC_RE.sub(lambda m: m.group(2) or "", text))
 
 
 class KeywordMatchType(str, Enum):
@@ -166,9 +178,10 @@ def _normalize_texts(
         if text.lower() in seen:
             raise ToolError(f"Error: Duplicate {kind} '{text}'.")
         seen.add(text.lower())
-        if len(text) > max_chars:
+        length = display_length(text)
+        if length > max_chars:
             raise ToolError(
-                f"Error: {kind.capitalize()} '{text}' has {len(text)} "
+                f"Error: {kind.capitalize()} '{text}' has {length} "
                 f"characters; the maximum is {max_chars}."
             )
         if pin is not None and not 1 <= int(pin) <= max_pin:

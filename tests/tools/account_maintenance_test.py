@@ -286,6 +286,7 @@ class TestUpdateResponsiveSearchAd(MutateToolTestCase):
     def _ad_row(self, ad_type="RESPONSIVE_SEARCH_AD"):
         headline = self.real_ga_client.get_type("AdTextAsset")
         headline.text = "Oude kop"
+        headline.pinned_field = self.enums.ServedAssetFieldTypeEnum.HEADLINE_1
         return self.row(
             {
                 "ad_group_ad.ad.type_": getattr(self.enums.AdTypeEnum, ad_type),
@@ -301,8 +302,9 @@ class TestUpdateResponsiveSearchAd(MutateToolTestCase):
             am.update_responsive_search_ad, customer_id=CID, ad_id="42", ad=AD
         )
         items = self.items(proposal)
+        # The current pin is shown so it is not dropped unnoticed.
         self.assertEqual(
-            items["Headlines"]["original_value_readable"], "Oude kop"
+            items["Headlines"]["original_value_readable"], "Oude kop [pin 1]"
         )
         self.assertEqual(
             items["Final URL"]["value_readable"], "https://example.be/nieuw"

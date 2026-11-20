@@ -2312,6 +2312,130 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
+      "description": "Replaces one headline or description text wherever it is used.\n\nFinds the exact text (case and spacing ignored) in responsive search ads,\nPerformance Max asset groups (headlines, long headlines, descriptions)\nand Demand Gen ads, and replaces only that text. All other texts, pins\nand dynamic insertions such as {KeyWord:...} stay untouched.\n- Search and Demand Gen ads are edited in place (they go through policy\n  review again but keep their statistics).\n- PMax text assets cannot be edited, so a new text asset is created,\n  linked in the same field, and the old link is removed.\nEverything happens in one atomic request. If the API rejects one\nplacement type, nothing changes; rerun with `channels` limited. Limits:\nSearch headlines 30 characters, Demand Gen headlines 40, PMax headlines\n30, long headlines and descriptions 90; dynamic insertions count as their\ndefault text.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "campaign_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional campaign IDs to limit the search to."
+          },
+          "channels": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "Placements in which ad text can be replaced.",
+                  "enum": [
+                    "SEARCH",
+                    "PERFORMANCE_MAX",
+                    "DEMAND_GEN"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional subset of SEARCH, PERFORMANCE_MAX, DEMAND_GEN\n(default: all three)."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "new_text": {
+            "description": "The replacement text.",
+            "type": "string"
+          },
+          "old_text": {
+            "description": "The current text to replace.",
+            "type": "string"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "old_text",
+          "new_text"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_replace_ad_text",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Replace Ad Text"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
       "description": "Sets bid modifiers on a campaign's devices, locations or ad schedules.\n\nA modifier of 1.2 means +20%, 0.8 means -20% and 0 excludes the device\nentirely. Automated strategies such as Maximize conversions ignore most\nmodifiers except a device exclusion (0).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -2997,7 +3121,7 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
-      "description": "Replaces the texts, final URL and paths of a responsive search ad.\n\nThe ad keeps its ID and statistics but goes through policy review again.\nPass the complete new set of headlines and descriptions; the current\ntexts are shown in the proposal for comparison.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "description": "Replaces the texts, final URL and paths of a responsive search ad.\n\nThe ad keeps its ID and statistics but goes through policy review again.\nPass the complete new set of headlines and descriptions, including pins\nand dynamic insertions you want to keep; the current texts and pins are\nshown in the proposal for comparison. To change a single text, use\nreplace_ad_text instead, which leaves everything else untouched.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
