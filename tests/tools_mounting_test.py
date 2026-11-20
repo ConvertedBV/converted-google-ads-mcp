@@ -92,6 +92,16 @@ class TestToolsMounting(unittest.IsolatedAsyncioTestCase):
             "create_responsive_search_ad",
         ):
             self.assertIn(f"campaign_builder_{name}", tool_names)
+        for name in (
+            "keyword_planning_generate_keyword_ideas",
+            "keyword_planning_get_keyword_metrics",
+            "keyword_planning_forecast_keywords",
+            "conversions_get_conversion_setup",
+            "conversions_create_conversion_action",
+            "conversions_update_conversion_action",
+            "conversions_set_conversion_goals",
+        ):
+            self.assertIn(name, tool_names)
 
     async def test_read_only_mode_drops_mutating_tools(self):
         """GOOGLE_ADS_MCP_READ_ONLY removes every tool not marked read-only."""
