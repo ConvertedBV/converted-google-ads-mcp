@@ -225,8 +225,11 @@ _VALUE_RES = {
     "TEXT": re.compile(r"^.{1,80}$"),
     "NUMBER": re.compile(r"^-?\d+(?:[.,]\d+)?$"),
     "PERCENT": re.compile(r"^-?\d+(?:[.,]\d+)?%$"),
+    # A currency symbol or ISO code plus an amount, e.g. €1.499, € 99,95,
+    # 1499 EUR or EUR 1.499,00.
     "PRICE": re.compile(
-        r"^(?:[^\d\s]{1,3}\s?\d+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?\s?[A-Z]{3})$"
+        r"^(?=.*\d)(?:[^\w\s]{1,3}\s?[\d.,]+|[\d.,]+\s?[A-Z]{3}"
+        r"|[A-Z]{3}\s?[\d.,]+)$"
     ),
 }
 _LEVEL_RESOURCE = {

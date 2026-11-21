@@ -136,29 +136,46 @@ def _fill_case_value(
     value: str | None,
     level: int,
     custom_label_index: int,
+    pmax: bool = False,
 ) -> None:
     """Sets the dimension on a case value; value None = 'everything else'."""
     field, value_field = _FIELDS[dim]
+    enums = ga_client.enums
+    # PMax listing group filters use their own enums with the same values.
+    names = {
+        "CATEGORY": "ProductCategoryLevelEnum",
+        "PRODUCT_TYPE": "ProductTypeLevelEnum",
+        "CUSTOM_LABEL": "ProductCustomAttributeIndexEnum",
+        "CONDITION": "ProductConditionEnum",
+        "CHANNEL": "ProductChannelEnum",
+    }
+    if pmax:
+        names = {
+            "CATEGORY": "ListingGroupFilterProductCategoryLevelEnum",
+            "PRODUCT_TYPE": "ListingGroupFilterProductTypeLevelEnum",
+            "CUSTOM_LABEL": "ListingGroupFilterCustomAttributeIndexEnum",
+            "CONDITION": "ListingGroupFilterProductConditionEnum",
+            "CHANNEL": "ListingGroupFilterProductChannelEnum",
+        }
     target = getattr(case_value, field)
     target._pb.SetInParent()
     if dim == "CATEGORY":
         target.level = getattr(
-            ga_client.enums.ProductCategoryLevelEnum, f"LEVEL{int(level)}"
+            getattr(enums, names["CATEGORY"]), f"LEVEL{int(level)}"
         )
     elif dim == "PRODUCT_TYPE":
         target.level = getattr(
-            ga_client.enums.ProductTypeLevelEnum, f"LEVEL{int(level)}"
+            getattr(enums, names["PRODUCT_TYPE"]), f"LEVEL{int(level)}"
         )
     elif dim == "CUSTOM_LABEL":
         target.index = getattr(
-            ga_client.enums.ProductCustomAttributeIndexEnum,
+            getattr(enums, names["CUSTOM_LABEL"]),
             f"INDEX{int(custom_label_index)}",
         )
     if value is None:
         return
     if dim in _ENUM_VALUES:
-        enum = getattr(ga_client.enums, _ENUM_VALUES[dim][0])
-        setattr(target, value_field, getattr(enum, value))
+        setattr(target, value_field, getattr(getattr(enums, names[dim]), value))
     elif dim == "CATEGORY":
         setattr(target, value_field, int(value))
     else:
@@ -504,7 +521,13 @@ def set_listing_group_filters(
             else enums.ListingGroupFilterTypeEnum.UNIT_INCLUDED
         )
         _fill_case_value(
-            ga_client, unit.case_value, dim, value, level, custom_label_index
+            ga_client,
+            unit.case_value,
+            dim,
+            value,
+            level,
+            custom_label_index,
+            pmax=True,
         )
         operations.append(op)
         change_items.append(

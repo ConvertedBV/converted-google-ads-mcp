@@ -315,8 +315,8 @@ class TestAppCampaign(MutateToolTestCase):
             [
                 self.row(
                     {
-                        "geo_target_constant.id": 2056,
-                        "geo_target_constant.name": "Belgium",
+                        "geo_target_constant.resource_name": "geoTargetConstants/2056",
+                        "geo_target_constant.canonical_name": "Belgium",
                     }
                 )
             ],

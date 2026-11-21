@@ -190,7 +190,9 @@ def update_campaign_automation(
             )
         if wanted != current:
             for automation_type, status in wanted.items():
-                setting = ga_client.get_type("AssetAutomationSetting")
+                setting = type(
+                    ga_client.get_type("Campaign")
+                ).AssetAutomationSetting()
                 setting.asset_automation_type = getattr(
                     enums.AssetAutomationTypeEnum, automation_type
                 )
