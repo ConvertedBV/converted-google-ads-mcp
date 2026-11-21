@@ -24,11 +24,13 @@ means built and tested, waiting for merge.
 | 12 | Product groups (Shopping) and listing group filters (PMax), PMax and AI Max settings, URL exclusions | PR |
 | 13 | Ad group settings, frequency caps, ad customizers, conversion adjustments, conversion value rules | PR |
 | 14 | App campaigns | PR |
+| 15 | Billing: payments accounts, billing setups, account budgets | PR |
 
-## Coverage after phase 14
+## Coverage after phase 15
 
 - **Account**: create client accounts under a manager, invite users, accept
-  Merchant Center links, account tracking (auto-tagging, template, suffix),
+  Merchant Center links, billing setup on an existing payments account and
+  account budgets, account tracking (auto-tagging, template, suffix),
   account exclusions and account-level negative keywords.
 - **Research**: keyword ideas, metrics and forecasts; audience suggestions,
   segments and composition; brand suggestions.
@@ -62,7 +64,7 @@ means built and tested, waiting for merge.
 - **Product groups deeper than the top level** (category or product type
   level 2+) need the parent levels first; the tools build one level.
 - **Frequency caps on Demand Gen**: not supported by Google.
-- **Billing setup** and **payments accounts**, **terms of service**
+- Creating **payments accounts or profiles** (payment details), **terms of service**
   (Customer Match, lead forms), **GA4 links**: need a person in the Google
   Ads or GA4 interface.
 - **Lead form leads** cannot be downloaded through the API; use the

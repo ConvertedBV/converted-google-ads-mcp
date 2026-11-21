@@ -76,7 +76,11 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   fixed afterwards), `invite_user` (access by email; ADMIN only with
 >   `GOOGLE_ADS_MCP_ALLOW_ADMIN_INVITES=true`) and
 >   `manage_merchant_center_link` (accept or reject a link request sent from
->   Merchant Center). Billing and terms stay in the Google Ads interface.
+>   Merchant Center). `list_payments_accounts`,
+>   `create_billing_setup` (on an existing payments account, e.g.
+>   consolidated billing) and `manage_account_budget` (spending caps, a
+>   higher cap limited by the safety limit). Payment details and terms stay
+>   in the Google Ads interface.
 > - **Product groups**: `set_product_groups` (Shopping: one level by brand,
 >   top-level category or product type, custom label, item ID, condition or
 >   channel, with bids or exclusions; each bid capped against that group's
