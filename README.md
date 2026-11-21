@@ -171,6 +171,20 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 > - **Vercel deployment** via `Dockerfile.vercel`, with the Redis storage extra and
 >   `GOOGLE_ADS_MCP_STATELESS_HTTP=true` (serverless instances do not share MCP
 >   sessions). Other hosts keep upstream's stateful default.
+> - **Google Analytics 4** (`analytics_*` tools, off by default): reporting
+>   on the Data API (`run_report`, pivot, realtime, funnel, metadata,
+>   compatibility, quota), analyses (`property_overview`,
+>   `channel_performance` per channel and month with key events, purchases
+>   and revenue, `tracking_health`), the full Admin API configuration
+>   (`get_property_setup`, generic `list_resources` / `get_resource` /
+>   `get_resource_schema` for 35 resource types, change history, data access
+>   report) and propose & confirm changes (key events, custom dimensions and
+>   metrics, annotations, property settings, data retention, Google Ads
+>   links, data streams, enhanced measurement, user access, and a generic
+>   `manage_resource` for audiences, channel groups, calculated metrics,
+>   event rules, links and settings). Enable with
+>   `GOOGLE_ADS_MCP_ANALYTICS=read` or `full`; see
+>   [docs/ANALYTICS.md](docs/ANALYTICS.md).
 >
 > Write access needs a Google Ads user with Standard or Admin access on the
 > account and a developer token with at least Basic access. After deploying a
@@ -418,6 +432,8 @@ Audit records can also be persisted to `filetree`, `redis`, `firestore`, or `mem
 | `GOOGLE_ADS_MCP_OAUTH_CLIENT_SECRET` | Google Cloud OAuth 2.0 Client Secret. |
 | `GOOGLE_ADS_MCP_BASE_URL` | Public base URL of the HTTP server (default: `http://localhost:8080`). |
 | `GOOGLE_ADS_MCP_JWT_SIGNING_KEY` | Recommended for multi-instance or persistent HTTP deployments to sign FastMCP JWTs consistently. |
+| `GOOGLE_ADS_MCP_ANALYTICS` | Google Analytics 4 tools: unset/`off` (default), `read` (read-only tools, scope `analytics.readonly`) or `full` (all tools, scopes `analytics.readonly`, `analytics.edit`, `analytics.manage.users`). Changing it changes the OAuth scopes, so users reconnect once. |
+| `GOOGLE_ADS_MCP_ANALYTICS_PROPERTY_IDS` | Optional comma-separated GA4 property IDs; calls for other properties are refused. |
 
 #### OAuth State & Audit Persistence
 

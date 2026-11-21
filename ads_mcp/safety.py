@@ -19,6 +19,9 @@
   with another customer_id or login_customer_id is refused.
 - GOOGLE_ADS_MCP_BLOCKED_TOOLS: comma-separated tool names (with or without
   namespace prefix) that are not exposed at all.
+- GOOGLE_ADS_MCP_ANALYTICS_PROPERTY_IDS: comma-separated GA4 property IDs
+  the Analytics tools may touch. Every tool call with another property_id
+  is refused. Unset = all properties the signed-in user can access.
 - GOOGLE_ADS_MCP_MAX_DAILY_BUDGET: absolute ceiling for any campaign's daily
   budget set through this server, in the account currency. Complements the
   per-change increase cap, which alone allows step-by-step escalation.
@@ -35,6 +38,7 @@ from mcp import types as mcp_types
 ACCOUNT_IDS_ENV_VAR = "GOOGLE_ADS_MCP_ACCOUNT_IDS"
 BLOCKED_TOOLS_ENV_VAR = "GOOGLE_ADS_MCP_BLOCKED_TOOLS"
 MAX_DAILY_BUDGET_ENV_VAR = "GOOGLE_ADS_MCP_MAX_DAILY_BUDGET"
+PROPERTY_IDS_ENV_VAR = "GOOGLE_ADS_MCP_ANALYTICS_PROPERTY_IDS"
 
 _ACCOUNT_ARGUMENTS = ("customer_id", "login_customer_id")
 
@@ -46,6 +50,13 @@ def _digits(value: Any) -> str:
 def allowed_accounts() -> frozenset[str] | None:
     """Returns the allowed customer IDs, or None when unrestricted."""
     raw = os.environ.get(ACCOUNT_IDS_ENV_VAR, "")
+    ids = frozenset(_digits(v) for v in raw.split(",") if _digits(v))
+    return ids or None
+
+
+def allowed_properties() -> frozenset[str] | None:
+    """Returns the allowed GA4 property IDs, or None when unrestricted."""
+    raw = os.environ.get(PROPERTY_IDS_ENV_VAR, "")
     ids = frozenset(_digits(v) for v in raw.split(",") if _digits(v))
     return ids or None
 
@@ -108,4 +119,14 @@ class AccountScopeMiddleware(Middleware):
                         "allowed on this server. Allowed accounts are set "
                         f"in {ACCOUNT_IDS_ENV_VAR}."
                     )
+        allowed_props = allowed_properties()
+        if allowed_props is not None:
+            arguments = context.message.arguments or {}
+            value = arguments.get("property_id")
+            if value not in (None, "") and _digits(value) not in allowed_props:
+                raise ToolError(
+                    f"Error: GA4 property {_digits(value)} is not allowed on "
+                    f"this server. Allowed properties are set in "
+                    f"{PROPERTY_IDS_ENV_VAR}."
+                )
         return await call_next(context)

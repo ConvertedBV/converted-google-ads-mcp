@@ -11,7 +11,10 @@ dependencies = [
     # 35.1.0 ships v26 of the Google Ads API (pinned in ads_mcp/utils.py).
     "google-ads>=35.1.0,<36",
     "mcp[cli]>=2.0.0,<3",
-    "fastmcp[tasks]>=4.0.6,<5"
+    "fastmcp[tasks]>=4.0.6,<5",
+    # Google Analytics 4 tools (ads_mcp/tools/analytics_*.py).
+    "google-analytics-admin>=0.30.0,<1",
+    "google-analytics-data>=0.23.0,<1"
 ]
 
 description = "MCP Server for Google Ads, depends on Google Ads API."

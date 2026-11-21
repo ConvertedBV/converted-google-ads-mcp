@@ -22,13 +22,14 @@ of the server.
 import os
 from typing import Any
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.google import GoogleProvider
+from ads_mcp.auth_provider import ConvertedGoogleProvider
 from fastmcp_tasks import TasksExtension
 from mcp import types as mcp_types
 from mcp.server.subscriptions import InMemorySubscriptionBus, ListenHandler
 from ads_mcp.audit import AuditMiddleware
-from ads_mcp.instructions import SERVER_INSTRUCTIONS
+from ads_mcp.instructions import server_instructions
 from ads_mcp.safety import AccountScopeMiddleware, is_blocked
+from ads_mcp.analytics.client import analytics_scopes, is_namespace_allowed
 from ads_mcp.auth_storage import (
     create_audit_storage,
     create_client_storage,
@@ -52,18 +53,22 @@ if _CLIENT_ID and _CLIENT_SECRET:
             "https://www.googleapis.com/auth/userinfo.profile",
             "https://www.googleapis.com/auth/adwords",
         ],
+        # Google Analytics 4 scopes (only when GOOGLE_ADS_MCP_ANALYTICS is
+        # 'read' or 'full'): requested at login, not required on the token,
+        # so Ads keeps working for sessions without them.
+        "optional_scopes": analytics_scopes(),
     }
     if _JWT_SIGNING_KEY:
         provider_kwargs["jwt_signing_key"] = _JWT_SIGNING_KEY
     if client_storage is not None:
         provider_kwargs["client_storage"] = client_storage
 
-    auth = GoogleProvider(**provider_kwargs)
+    auth = ConvertedGoogleProvider(**provider_kwargs)
     mcp = FastMCP(
-        "Google Ads Server", instructions=SERVER_INSTRUCTIONS, auth=auth
+        "Google Ads Server", instructions=server_instructions(), auth=auth
     )
 else:
-    mcp = FastMCP("Google Ads Server", instructions=SERVER_INSTRUCTIONS)
+    mcp = FastMCP("Google Ads Server", instructions=server_instructions())
 
 mcp.add_extension(TasksExtension())
 mcp.add_middleware(
@@ -140,6 +145,10 @@ def initialize_and_mount_tools(parent_mcp: FastMCP) -> None:
 
     for category, sub_mcp in sub_servers.items():
         if not config.is_namespace_enabled(category):
+            continue
+        # Google Analytics namespaces follow GOOGLE_ADS_MCP_ANALYTICS
+        # (off / read / full), independent of tools_config.yaml.
+        if not is_namespace_allowed(category):
             continue
 
         # Filter disabled tools inside the sub-server before mounting

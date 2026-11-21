@@ -193,7 +193,7 @@ class TestAuthConfig(unittest.TestCase):
         with self.assertRaises(ValueError):
             create_client_storage()
 
-    @patch("fastmcp.server.auth.providers.google.GoogleProvider")
+    @patch("ads_mcp.auth_provider.ConvertedGoogleProvider")
     def test_coordinator_init_with_jwt_signing_key_and_storage(
         self, mock_provider
     ):
@@ -218,6 +218,12 @@ class TestAuthConfig(unittest.TestCase):
         self.assertEqual(kwargs["jwt_signing_key"], "custom_jwt_signing_key")
         self.assertIn("client_storage", kwargs)
         self.assertIsInstance(kwargs["client_storage"], FernetEncryptionWrapper)
+        # Analytics scopes are never required on the token (Ads must keep
+        # working for sessions that did not grant them).
+        self.assertFalse(
+            [s for s in kwargs["required_scopes"] if "analytics" in s]
+        )
+        self.assertIn("optional_scopes", kwargs)
 
 
 if __name__ == "__main__":
