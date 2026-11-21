@@ -37,9 +37,9 @@ _APP_RE = re.compile(r"^[A-Za-z0-9_.-]{3,200}$")
 
 
 class CustomSegmentType(str, Enum):
-    """AUTO lets Google interpret the members (recommended, required for
-    Demand Gen); SEARCH means people who searched for these keywords on
-    Google; INTEREST and PURCHASE_INTENT are the legacy Display types."""
+    """AUTO lets Google interpret the members (recommended); SEARCH means
+    people who searched for these keywords on Google. INTEREST and
+    PURCHASE_INTENT are legacy types that new segments cannot use."""
 
     AUTO = "AUTO"
     SEARCH = "SEARCH"
@@ -62,8 +62,11 @@ def _members(
     for text in (
         mh.clean_texts(keywords, "keywords", MAX_MEMBERS) if keywords else []
     ):
-        if len(text) > 80:
-            raise ToolError(f"Error: Keyword too long (max 80): '{text}'.")
+        if len(text) > 80 or len(text.split()) > 10:
+            raise ToolError(
+                f"Error: Keyword too long (max 80 characters, 10 words): "
+                f"'{text}'."
+            )
         result.append(("KEYWORD", text.lower()))
     for raw in urls or []:
         url = str(raw).strip()
@@ -110,7 +113,7 @@ def _fill_members(ga_client: Any, audience: Any, members) -> None:
 
 
 @audiences_mcp.tool(
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False)
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True)
 )
 @mh.with_workflow_doc
 def manage_custom_segment(
@@ -142,8 +145,9 @@ def manage_custom_segment(
         operation: CREATE (default), REPLACE_MEMBERS or RENAME.
         custom_audience_id: Existing custom segment ID.
         name: Segment name (CREATE, RENAME).
-        segment_type: AUTO (default), SEARCH, INTEREST or PURCHASE_INTENT.
-        keywords: Interests or search terms, max 80 characters each.
+        segment_type: AUTO (default) or SEARCH.
+        keywords: Interests or search terms, max 80 characters and 10
+            words each.
         urls: Websites people visit, e.g. competitor.be.
         apps: App package names or App Store IDs.
         description: Optional description (CREATE).
@@ -164,6 +168,11 @@ def manage_custom_segment(
     }
 
     if op_value == "CREATE":
+        if type_value not in ("AUTO", "SEARCH"):
+            raise ToolError(
+                "Error: New custom segments are AUTO or SEARCH; INTEREST and "
+                "PURCHASE_INTENT only exist on older segments."
+            )
         if not clean_name:
             raise ToolError("Error: 'name' is required.")
         members = _members(keywords, urls, apps)

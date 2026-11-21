@@ -32,7 +32,7 @@ import ads_mcp.utils as utils
 
 MAX_URL_EXCLUSIONS = 50
 _AUTOMATION_CHANNELS = ("SEARCH", "PERFORMANCE_MAX")
-_FREQUENCY_CHANNELS = ("DISPLAY", "DEMAND_GEN", "VIDEO")
+_FREQUENCY_CHANNELS = ("DISPLAY",)
 
 
 def _on_off(value: bool) -> str:
@@ -158,6 +158,18 @@ def update_campaign_automation(
         for s in campaign.asset_automation_settings
     }
     wanted = dict(current)
+    if channel == "SEARCH" and ai_max is False:
+        # Without AI Max these Search features do not serve; turn them off
+        # so the settings match what happens.
+        for automation_type in (
+            "FINAL_URL_EXPANSION_TEXT_ASSET_AUTOMATION",
+            "TEXT_ASSET_AUTOMATION",
+        ):
+            if current.get(automation_type) == "OPTED_IN":
+                if automation_type == "TEXT_ASSET_AUTOMATION":
+                    text_asset_automation = False
+                else:
+                    final_url_expansion = False
     for automation_type, value, readable in (
         (
             "FINAL_URL_EXPANSION_TEXT_ASSET_AUTOMATION",
@@ -184,7 +196,11 @@ def update_campaign_automation(
             op.campaign_operation.update_mask.paths.append(
                 "ai_max_setting.enable_ai_max"
             )
-            fields["AI Max"] = "on" if ai_max else "off"
+            fields["AI Max"] = (
+                "on (matches more searches; spend can rise within the budget)"
+                if ai_max
+                else "off"
+            )
             original["AI Max"] = (
                 "on" if campaign.ai_max_setting.enable_ai_max else "off"
             )
@@ -329,7 +345,10 @@ def set_frequency_caps(
     validate_only: bool = True,
     checksum: str | None = None,
 ) -> str:
-    """Limits how often one person sees a Display or Demand Gen campaign.
+    """Limits how often one person sees a Display campaign.
+
+    Demand Gen does not support frequency caps; Video campaigns cannot be
+    changed through the API.
 
     Replaces the campaign's frequency caps; pass an empty list to remove
     them. Example: [{{"max_events": 3, "time_unit": "WEEK"}}] for at most
@@ -337,7 +356,7 @@ def set_frequency_caps(
     {workflow}
     Args:
         customer_id: Google Ads Customer ID (digits or hyphenated).
-        campaign_id: Display or Demand Gen campaign ID.
+        campaign_id: Display campaign ID.
         caps: Up to 3 caps (one per event and time unit).
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
@@ -374,7 +393,7 @@ def set_frequency_caps(
     channel = mh.enum_name(campaign.advertising_channel_type)
     if channel not in _FREQUENCY_CHANNELS:
         raise ToolError(
-            f"Error: Frequency caps apply to Display and Demand Gen, not "
+            f"Error: Frequency caps can be set on Display campaigns, not "
             f"{channel}."
         )
 

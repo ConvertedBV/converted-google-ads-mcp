@@ -83,8 +83,9 @@ def _normalize(
     values: list[ProductGroupValue | dict],
 ) -> tuple[str, list[dict[str, Any]]]:
     dim = mh.enum_value(dimension, ProductDimension, "dimension")
-    if dim in ("CATEGORY", "PRODUCT_TYPE") and not 1 <= int(level) <= 5:
-        raise ToolError("Error: 'level' must be 1-5.")
+    if dim in ("CATEGORY", "PRODUCT_TYPE") and int(level) != 1:
+        # Google needs every deeper level under its parent level.
+        raise ToolError("Error: Only the top level (1) is supported.")
     if dim == "CUSTOM_LABEL" and not 0 <= int(custom_label_index) <= 4:
         raise ToolError("Error: 'custom_label_index' must be 0-4.")
     if not values or len(values) > MAX_VALUES:
@@ -182,6 +183,34 @@ def _fill_case_value(
         setattr(target, value_field, value)
 
 
+def _existing_key(case_value: Any) -> tuple[str, str | None] | None:
+    """(dimension, lowercased value or None for 'everything else')."""
+    for dim, (field, value_field) in _FIELDS.items():
+        if field in case_value:
+            raw = getattr(getattr(case_value, field), value_field)
+            if dim in _ENUM_VALUES:
+                name = mh.enum_name(raw)
+                value = (
+                    None if name in ("UNSPECIFIED", "UNKNOWN", "0") else name
+                )
+            else:
+                value = str(raw) if raw not in ("", 0, None) else None
+            return dim, value.lower() if value else None
+    return None
+
+
+def _describe_node(key, bid: int, excluded: bool, currency: str) -> tuple:
+    if key is None:
+        return "all products", "default bid"
+    dim, value = key
+    state = (
+        "excluded"
+        if excluded
+        else mh.format_money(bid, currency) if bid else "default bid"
+    )
+    return f"{dim.lower()}: {value or 'everything else'}", state
+
+
 def _label(dim: str, level: int, index: int) -> str:
     if dim in ("CATEGORY", "PRODUCT_TYPE"):
         return f"{dim.lower()} level {level}"
@@ -201,7 +230,6 @@ def set_product_groups(
     values: list[ProductGroupValue],
     other_cpc_bid: float | None = None,
     other_excluded: bool = False,
-    level: int = 1,
     custom_label_index: int = 0,
     login_customer_id: str | int | None = None,
     validate_only: bool = True,
@@ -227,7 +255,6 @@ def set_product_groups(
         other_cpc_bid: Max CPC for everything else (default: the ad group's
             default bid).
         other_excluded: Exclude everything else instead.
-        level: Level 1-5 for CATEGORY and PRODUCT_TYPE.
         custom_label_index: 0-4 for CUSTOM_LABEL.
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
@@ -236,6 +263,7 @@ def set_product_groups(
     """
     cid = mh.require_customer_id(customer_id)
     ag_id = mh.require_simple_id(ad_group_id, "ad_group_id")
+    level = 1  # top-level categories and product types
     dim, groups = _normalize(dimension, level, custom_label_index, values)
     if other_excluded and other_cpc_bid is not None:
         raise ToolError("Error: 'everything else' cannot be excluded and bid.")
@@ -266,8 +294,16 @@ def set_product_groups(
         ga_client,
         cid,
         "SELECT ad_group_criterion.resource_name, "
-        "ad_group_criterion.cpc_bid_micros, "
-        "ad_group_criterion.listing_group.parent_ad_group_criterion "
+        "ad_group_criterion.cpc_bid_micros, ad_group_criterion.negative, "
+        "ad_group_criterion.listing_group.type, "
+        "ad_group_criterion.listing_group.parent_ad_group_criterion, "
+        "ad_group_criterion.listing_group.case_value.product_brand.value, "
+        "ad_group_criterion.listing_group.case_value.product_category.category_id, "
+        "ad_group_criterion.listing_group.case_value.product_type.value, "
+        "ad_group_criterion.listing_group.case_value.product_custom_attribute.value, "
+        "ad_group_criterion.listing_group.case_value.product_item_id.value, "
+        "ad_group_criterion.listing_group.case_value.product_condition.condition, "
+        "ad_group_criterion.listing_group.case_value.product_channel.channel "
         "FROM ad_group_criterion WHERE ad_group_criterion.type = "
         f"'LISTING_GROUP' AND ad_group.id = {ag_id} "
         "AND ad_group_criterion.status != 'REMOVED'",
@@ -277,23 +313,47 @@ def set_product_groups(
         for r in tree
         if not r.ad_group_criterion.listing_group.parent_ad_group_criterion
     ]
-    baseline = max(
-        [int(ad_group.cpc_bid_micros or 0)]
-        + [int(r.ad_group_criterion.cpc_bid_micros or 0) for r in tree]
-    )
+    default_bid = int(ad_group.cpc_bid_micros or 0)
+    # Current state per product group, so each new bid is compared with
+    # what that group bids today and the proposal shows what is replaced.
+    current: dict[Any, tuple[int, bool]] = {}
+    for r in tree:
+        criterion = r.ad_group_criterion
+        if mh.enum_name(criterion.listing_group.type_) != "UNIT":
+            continue
+        key = (
+            _existing_key(criterion.listing_group.case_value)
+            if criterion.listing_group.parent_ad_group_criterion
+            else None
+        )
+        current[key] = (int(criterion.cpc_bid_micros or 0), criterion.negative)
     other_micros = (
         mh.to_micros(other_cpc_bid, "other_cpc_bid")
         if other_cpc_bid is not None
         else None
     )
-    for bid in [g["cpc_bid_micros"] for g in groups] + [other_micros]:
-        if bid and not manual:
+    checks = [((dim, g["value"].lower()), g["cpc_bid_micros"]) for g in groups]
+    checks.append(((dim, None), other_micros))
+    for key, bid in checks:
+        if not bid:
+            continue
+        if not manual:
             raise ToolError(
                 "Error: Product group bids only apply with manual CPC; "
                 "leave cpc_bid empty for this campaign's bidding strategy."
             )
-        if bid:
-            mh.enforce_increase_guardrail(baseline, bid, "product group bid")
+        previous = current.get(key)
+        baseline = previous[0] if previous and previous[0] else default_bid
+        if baseline <= 0:
+            raise ToolError(
+                "Error: There is no current bid to compare with; set the ad "
+                "group's default bid first with update_cpc_bid."
+            )
+        mh.enforce_increase_guardrail(
+            baseline,
+            bid,
+            f"bid of product group '{key[1] or 'everything else'}'",
+        )
 
     enums = ga_client.enums
     operations: list[Any] = []
@@ -302,13 +362,11 @@ def set_product_groups(
         op = ga_client.get_type("MutateOperation")
         op.ad_group_criterion_operation.remove = rn
         operations.append(op)
+    for key, (bid, excluded) in current.items():
+        field, state = _describe_node(key, bid, excluded, currency)
         change_items.append(
             pac.ChangeItem(
-                "REMOVE",
-                "Product groups",
-                ad_group.name,
-                "Tree",
-                "current tree",
+                "REMOVE", "Product group", ad_group.name, field, state
             )
         )
     group_rn = f"customers/{cid}/adGroups/{ag_id}"
@@ -399,7 +457,6 @@ def set_listing_group_filters(
     dimension: ProductDimension,
     values: list[ProductGroupValue],
     other_excluded: bool = False,
-    level: int = 1,
     custom_label_index: int = 0,
     login_customer_id: str | int | None = None,
     validate_only: bool = True,
@@ -420,7 +477,6 @@ def set_listing_group_filters(
             CONDITION or CHANNEL.
         values: {{"value": "daikin"}} or {{"value": "outlet", "excluded": true}}.
         other_excluded: Exclude every product not listed.
-        level: Level 1-5 for CATEGORY and PRODUCT_TYPE.
         custom_label_index: 0-4 for CUSTOM_LABEL.
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
@@ -429,6 +485,7 @@ def set_listing_group_filters(
     """
     cid = mh.require_customer_id(customer_id)
     group_id = mh.require_simple_id(asset_group_id, "asset_group_id")
+    level = 1  # top-level categories and product types
     dim, groups = _normalize(dimension, level, custom_label_index, values)
     if any(g["cpc_bid_micros"] for g in groups):
         raise ToolError("Error: Bids do not apply to Performance Max.")
@@ -458,7 +515,15 @@ def set_listing_group_filters(
         ga_client,
         cid,
         "SELECT asset_group_listing_group_filter.resource_name, "
-        "asset_group_listing_group_filter.parent_listing_group_filter "
+        "asset_group_listing_group_filter.parent_listing_group_filter, "
+        "asset_group_listing_group_filter.type, "
+        "asset_group_listing_group_filter.case_value.product_brand.value, "
+        "asset_group_listing_group_filter.case_value.product_category.category_id, "
+        "asset_group_listing_group_filter.case_value.product_type.value, "
+        "asset_group_listing_group_filter.case_value.product_custom_attribute.value, "
+        "asset_group_listing_group_filter.case_value.product_item_id.value, "
+        "asset_group_listing_group_filter.case_value.product_condition.condition, "
+        "asset_group_listing_group_filter.case_value.product_channel.channel "
         "FROM asset_group_listing_group_filter "
         f"WHERE asset_group.id = {group_id}",
     )
@@ -486,14 +551,28 @@ def set_listing_group_filters(
         op = ga_client.get_type("MutateOperation")
         op.asset_group_listing_group_filter_operation.remove = rn
         operations.append(op)
-    if parents:
+    for r in existing:
+        node = r.asset_group_listing_group_filter
+        kind = mh.enum_name(node.type_)
+        if kind not in ("UNIT_INCLUDED", "UNIT_EXCLUDED"):
+            continue
+        key = (
+            _existing_key(node.case_value)
+            if node.parent_listing_group_filter
+            else None
+        )
+        field = (
+            "all products"
+            if key is None
+            else f"{key[0].lower()}: {key[1] or 'everything else'}"
+        )
         change_items.append(
             pac.ChangeItem(
                 "REMOVE",
-                "Listing group filters",
+                "Listing group filter",
                 name,
-                "Filters",
-                f"current {len(parents)} filters",
+                field,
+                "excluded" if kind == "UNIT_EXCLUDED" else "included",
             )
         )
     group_rn = f"customers/{cid}/assetGroups/{group_id}"

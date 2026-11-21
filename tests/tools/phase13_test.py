@@ -123,16 +123,53 @@ class TestAdCustomizers(MutateToolTestCase):
             name="discount",
             value="20%",
         )
-        ops = self.request("GoogleAdsService", "mutate").mutate_operations
+        removes = self.request("GoogleAdsService", "mutate").mutate_operations
+        self.assertEqual(len(removes), 1)
         self.assertEqual(
-            ops[0].customer_customizer_operation.remove,
+            removes[0].customer_customizer_operation.remove,
             f"customers/{CID}/customerCustomizers/3",
         )
+        self.assertIn("10%", json.dumps(proposal))
+
+        self.search_results(
+            [
+                self.row(
+                    {
+                        "customizer_attribute.resource_name": attr_rn,
+                        "customizer_attribute.name": "Discount",
+                        "customizer_attribute.type_": self.enums.CustomizerAttributeTypeEnum.PERCENT,
+                    }
+                )
+            ],
+            [
+                self.row(
+                    {
+                        "customer_customizer.resource_name": f"customers/{CID}/customerCustomizers/3",
+                        "customer_customizer.value.string_value": "10%",
+                    }
+                )
+            ],
+        )
+        self.commit(
+            ags.manage_ad_customizer,
+            proposal,
+            customer_id=CID,
+            name="discount",
+            value="20%",
+        )
+        calls = self.service("GoogleAdsService").mutate.call_args_list
+        create = calls[-1].kwargs["request"].mutate_operations[0]
         self.assertEqual(
-            ops[1].customer_customizer_operation.create.customizer_attribute,
+            create.customer_customizer_operation.create.customizer_attribute,
             attr_rn,
         )
-        self.assertIn("10%", json.dumps(proposal))
+        self.assertEqual(
+            calls[-2]
+            .kwargs["request"]
+            .mutate_operations[0]
+            .customer_customizer_operation.remove,
+            f"customers/{CID}/customerCustomizers/3",
+        )
 
     def test_value_must_match_type(self):
         self.search_results([])
@@ -221,7 +258,7 @@ class TestConversionAdjustments(MutateToolTestCase):
 class TestValueRules(MutateToolTestCase):
 
     def test_create_rule_and_rule_set(self):
-        self.search_results([])
+        self.search_results([], [])
         self.propose(
             cx.manage_conversion_value_rules,
             customer_id=CID,
@@ -243,23 +280,40 @@ class TestValueRules(MutateToolTestCase):
         self.assertEqual(rule_set.dimensions[0].name, "GEO_LOCATION")
         self.assertEqual(rule_set.attachment_type.name, "CUSTOMER")
 
+    def _metrics(self, conversions=10, value=1000):
+        return [
+            self.row(
+                {
+                    "metrics.conversions": conversions,
+                    "metrics.conversions_value": value,
+                }
+            )
+        ]
+
     def test_add_to_existing_set(self):
         set_rn = f"customers/{CID}/conversionValueRuleSets/4"
-        self.search_results(
-            [
-                self.row(
-                    {
-                        "conversion_value_rule_set.resource_name": set_rn,
-                        "conversion_value_rule_set.conversion_value_rules": [
-                            f"customers/{CID}/conversionValueRules/1"
-                        ],
-                        "conversion_value_rule_set.dimensions": [
-                            self.enums.ValueRuleSetDimensionEnum.GEO_LOCATION
-                        ],
-                    }
-                )
-            ]
+        store_set = self.row(
+            {
+                "conversion_value_rule_set.resource_name": f"customers/{CID}/conversionValueRuleSets/9",
+                "conversion_value_rule_set.status": self.enums.ConversionValueRuleSetStatusEnum.ENABLED,
+                "conversion_value_rule_set.conversion_action_categories": [
+                    self.enums.ConversionActionCategoryEnum.STORE_VISIT
+                ],
+            }
         )
+        general = self.row(
+            {
+                "conversion_value_rule_set.resource_name": set_rn,
+                "conversion_value_rule_set.status": self.enums.ConversionValueRuleSetStatusEnum.ENABLED,
+                "conversion_value_rule_set.conversion_value_rules": [
+                    f"customers/{CID}/conversionValueRules/1"
+                ],
+                "conversion_value_rule_set.dimensions": [
+                    self.enums.ValueRuleSetDimensionEnum.GEO_LOCATION
+                ],
+            }
+        )
+        self.search_results([], [store_set, general], self._metrics())
         self.propose(
             cx.manage_conversion_value_rules,
             customer_id=CID,
@@ -269,12 +323,100 @@ class TestValueRules(MutateToolTestCase):
         )
         ops = self.request("GoogleAdsService", "mutate").mutate_operations
         update = ops[1].conversion_value_rule_set_operation
+        self.assertEqual(update.update.resource_name, set_rn)
         self.assertEqual(len(update.update.conversion_value_rules), 2)
         self.assertEqual(
             [d.name for d in update.update.dimensions],
             ["GEO_LOCATION", "DEVICE"],
         )
         self.assertIn("dimensions", update.update_mask.paths)
+
+    def test_value_increase_capped(self):
+        with self.assertRaisesRegex(ToolError, "safety limit"):
+            cx.manage_conversion_value_rules(
+                customer_id=CID,
+                action="MULTIPLY",
+                value=5,
+                devices=["MOBILE"],
+            )
+        self.search_results([], [], self._metrics(10, 1000))
+        with self.assertRaisesRegex(ToolError, "average conversion value"):
+            cx.manage_conversion_value_rules(
+                customer_id=CID, action="SET", value=500, devices=["MOBILE"]
+            )
+
+    def test_remove_takes_rule_out_of_set(self):
+        rule_rn = f"customers/{CID}/conversionValueRules/1"
+        set_rn = f"customers/{CID}/conversionValueRuleSets/4"
+        self.search_results(
+            [
+                self.row(
+                    {
+                        "conversion_value_rule.resource_name": rule_rn,
+                        "conversion_value_rule.status": self.enums.ConversionValueRuleStatusEnum.ENABLED,
+                    }
+                )
+            ],
+            [
+                self.row(
+                    {
+                        "conversion_value_rule_set.resource_name": set_rn,
+                        "conversion_value_rule_set.status": self.enums.ConversionValueRuleSetStatusEnum.ENABLED,
+                        "conversion_value_rule_set.conversion_value_rules": [
+                            rule_rn
+                        ],
+                    }
+                )
+            ],
+        )
+        self.propose(
+            cx.manage_conversion_value_rules,
+            customer_id=CID,
+            operation="REMOVE",
+            rule_ids=["1"],
+        )
+        ops = self.request("GoogleAdsService", "mutate").mutate_operations
+        self.assertEqual(
+            ops[0].conversion_value_rule_set_operation.remove, set_rn
+        )
+        self.assertEqual(ops[1].conversion_value_rule_operation.remove, rule_rn)
+
+    def test_pause_last_rule_pauses_set(self):
+        rule_rn = f"customers/{CID}/conversionValueRules/1"
+        set_rn = f"customers/{CID}/conversionValueRuleSets/4"
+        self.search_results(
+            [
+                self.row(
+                    {
+                        "conversion_value_rule.resource_name": rule_rn,
+                        "conversion_value_rule.status": self.enums.ConversionValueRuleStatusEnum.ENABLED,
+                    }
+                )
+            ],
+            [
+                self.row(
+                    {
+                        "conversion_value_rule_set.resource_name": set_rn,
+                        "conversion_value_rule_set.status": self.enums.ConversionValueRuleSetStatusEnum.ENABLED,
+                        "conversion_value_rule_set.conversion_value_rules": [
+                            rule_rn
+                        ],
+                    }
+                )
+            ],
+        )
+        self.propose(
+            cx.manage_conversion_value_rules,
+            customer_id=CID,
+            operation="PAUSE",
+            rule_ids=["1"],
+        )
+        ops = self.request("GoogleAdsService", "mutate").mutate_operations
+        set_update = ops[0].conversion_value_rule_set_operation.update
+        self.assertEqual(set_update.status.name, "PAUSED")
+        self.assertEqual(
+            ops[1].conversion_value_rule_operation.update.status.name, "PAUSED"
+        )
 
     def test_one_condition(self):
         with self.assertRaisesRegex(ToolError, "exactly one condition"):

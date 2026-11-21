@@ -187,6 +187,15 @@ class TestCustomSegments(MutateToolTestCase):
         self.assertEqual(list(op.update_mask.paths), ["members"])
         self.assertEqual(op.update.members[0].app, "com.example.app")
 
+    def test_new_segments_auto_or_search(self):
+        with self.assertRaisesRegex(ToolError, "AUTO or SEARCH"):
+            cs.manage_custom_segment(
+                customer_id=CID,
+                name="Oud type",
+                segment_type="INTEREST",
+                keywords=["airco"],
+            )
+
     def test_needs_members(self):
         with self.assertRaisesRegex(ToolError, "keywords"):
             cs.manage_custom_segment(customer_id=CID, name="Leeg")

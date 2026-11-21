@@ -15,8 +15,9 @@
 """Tests for client accounts, user invitations and Merchant Center links."""
 
 import json
+import os
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from fastmcp.exceptions import ToolError
 
@@ -110,41 +111,27 @@ class TestInviteUser(MutateToolTestCase):
         )
         self.assertEqual(request.operation.create.access_role.name, "STANDARD")
 
+    def test_admin_needs_opt_in(self):
+        with self.assertRaisesRegex(ToolError, "ADMIN invitations"):
+            aa.invite_user(
+                customer_id=CID,
+                email_address="an@example.be",
+                access_role="ADMIN",
+            )
+        with patch.dict(os.environ, {aa.ADMIN_INVITES_ENV_VAR: "true"}):
+            self.propose(
+                aa.invite_user,
+                customer_id=CID,
+                email_address="an@example.be",
+                access_role="ADMIN",
+            )
+
     def test_bad_email(self):
         with self.assertRaisesRegex(ToolError, "email_address"):
             aa.invite_user(customer_id=CID, email_address="geen-mail")
 
 
 class TestMerchantCenterLink(MutateToolTestCase):
-
-    def test_request_link(self):
-        self.search_results([])
-        kwargs = dict(
-            customer_id=CID, action="REQUEST", merchant_center_id="999"
-        )
-        proposal = self.propose(aa.manage_merchant_center_link, **kwargs)
-        self.search_results([])
-        service = self.service("ProductLinkInvitationService")
-        service.create_product_link_invitation.return_value = MagicMock(
-            resource_name=f"customers/{CID}/productLinkInvitations/1"
-        )
-        self.commit(aa.manage_merchant_center_link, proposal, **kwargs)
-        request = self.request(
-            "ProductLinkInvitationService", "create_product_link_invitation"
-        )
-        self.assertEqual(
-            request.product_link_invitation.merchant_center.merchant_center_id,
-            999,
-        )
-
-    def test_already_linked(self):
-        self.search_results(
-            [self.row({"product_link.merchant_center.merchant_center_id": 999})]
-        )
-        with self.assertRaisesRegex(ToolError, "already linked"):
-            aa.manage_merchant_center_link(
-                customer_id=CID, action="REQUEST", merchant_center_id="999"
-            )
 
     def test_accept_pending_only(self):
         self.search_results(

@@ -355,13 +355,14 @@ def manage_ad_customizer(
     else:
         current = []
     old_values = {}
+    remove_ops: list[Any] = []
     for row in current:
         entry = getattr(row, resource)
         key = getattr(entry, parent_field) if parent_field else "customer"
         old_values[key] = entry.value.string_value
         op = ga_client.get_type("MutateOperation")
         getattr(op, f"{resource}_operation").remove = entry.resource_name
-        operations.append(op)
+        remove_ops.append(op)
 
     targets = (
         [f"customers/{cid}/{parent_path}/{i}" for i in ids]
@@ -395,25 +396,77 @@ def manage_ad_customizer(
             )
         )
 
-    return mh.run_google_ads_mutation(
-        ga_client=ga_client,
+    payload = {
+        "tool": "manage_ad_customizer",
+        "name": attr_name,
+        "type": type_value,
+        "value": text,
+        "level": level_value,
+        "entity_ids": ids,
+        "replaced": sorted(old_values),
+    }
+    success = (
+        f"Set customizer '{attr_name}' to '{text}' on {len(targets)} "
+        f"{level_value.lower()}(s). Use {{CUSTOMIZER.{attr_name}:default}} "
+        "in responsive search ads."
+    )
+    if not remove_ops:
+        return mh.run_google_ads_mutation(
+            ga_client=ga_client,
+            customer_id=cid,
+            mutate_operations=operations,
+            validate_only=validate_only,
+            checksum=checksum,
+            operation_payload=payload,
+            change_items=change_items,
+            success_message=success,
+            error_prefix="Failed to set ad customizer",
+        )
+
+    # A value has a fixed resource name per parent and customizer, so the
+    # old value is removed and the new one created in two requests (one
+    # request may not touch the same resource twice).
+    service = utils.get_googleads_service_from_client(
+        ga_client, "GoogleAdsService"
+    )
+    new_ops = [
+        op
+        for op, target in zip(operations, targets)
+        if target not in old_values
+    ]
+
+    def _mutate(ops: list[Any], validate: bool) -> None:
+        request = ga_client.get_type("MutateGoogleAdsRequest")
+        request.customer_id = cid
+        request.mutate_operations.extend(ops)
+        request.validate_only = validate
+        service.mutate(request=request)
+
+    def _validate() -> None:
+        _mutate(remove_ops, True)
+        if new_ops:
+            _mutate(new_ops, True)
+
+    def _commit() -> str:
+        _mutate(remove_ops, False)
+        try:
+            _mutate(operations, False)
+        except Exception as exc:
+            previous = "; ".join(f"{k}: {v}" for k, v in old_values.items())
+            raise ToolError(
+                "Error: The old customizer values were removed, but setting "
+                f"the new value failed. Previous values: {previous}. Set "
+                f"them again with this tool.\n{exc}"
+            ) from exc
+        return success
+
+    return pac.propose_and_confirm(
         customer_id=cid,
-        mutate_operations=operations,
         validate_only=validate_only,
         checksum=checksum,
-        operation_payload={
-            "tool": "manage_ad_customizer",
-            "name": attr_name,
-            "type": type_value,
-            "value": text,
-            "level": level_value,
-            "entity_ids": ids,
-        },
+        operation_payload=payload,
         change_items=change_items,
-        success_message=(
-            f"Set customizer '{attr_name}' to '{text}' on {len(targets)} "
-            f"{level_value.lower()}(s). Use {{CUSTOMIZER.{attr_name}:default}} "
-            "in responsive search ads."
-        ),
+        validate_fn=_validate,
+        commit_fn=_commit,
         error_prefix="Failed to set ad customizer",
     )

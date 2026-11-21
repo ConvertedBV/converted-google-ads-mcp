@@ -80,6 +80,50 @@ class TestProductGroups(MutateToolTestCase):
         self.assertEqual(other.listing_group.case_value.product_brand.value, "")
         self.assertEqual(other.cpc_bid_micros, 400_000)
 
+    def test_existing_tree_in_proposal_and_per_group_baseline(self):
+        brand = self.row(
+            {
+                "ad_group_criterion.resource_name": f"customers/{CID}/adGroupCriteria/7~2",
+                "ad_group_criterion.cpc_bid_micros": 100_000,
+                "ad_group_criterion.listing_group.type_": self.enums.ListingGroupTypeEnum.UNIT,
+                "ad_group_criterion.listing_group.parent_ad_group_criterion": f"customers/{CID}/adGroupCriteria/7~1",
+                "ad_group_criterion.listing_group.case_value.product_brand.value": "Daikin",
+            }
+        )
+        self.search_results([self._ad_group()], [self._root(), brand])
+        # 0.10 today: 0.30 is a 200% increase, even though the default is 0.50.
+        with self.assertRaisesRegex(ToolError, "safety limit"):
+            pg.set_product_groups(
+                customer_id=CID,
+                ad_group_id="7",
+                dimension="BRAND",
+                values=[{"value": "daikin", "cpc_bid": 0.3}],
+            )
+        self.search_results([self._ad_group()], [self._root(), brand])
+        proposal = self.propose(
+            pg.set_product_groups,
+            customer_id=CID,
+            ad_group_id="7",
+            dimension="BRAND",
+            values=[{"value": "daikin", "cpc_bid": 0.15}],
+        )
+        removed = [
+            i for i in proposal["change_items"] if i["operation"] == "REMOVE"
+        ]
+        self.assertEqual(removed[0]["field_readable"], "brand: daikin")
+
+    def test_no_baseline_refused(self):
+        group = self._ad_group()
+        group.ad_group.cpc_bid_micros = 0
+        self.search_results([group], [])
+        with self.assertRaisesRegex(ToolError, "no current bid"):
+            pg.set_product_groups(
+                customer_id=CID,
+                ad_group_id="7",
+                dimension="BRAND",
+                values=[{"value": "x", "cpc_bid": 0.3}],
+            )
+
     def test_bid_capped(self):
         self.search_results([self._ad_group()], [self._root()])
         with self.assertRaisesRegex(ToolError, "safety limit"):
@@ -254,8 +298,8 @@ class TestCampaignAutomation(MutateToolTestCase):
         self.assertEqual(cap.key.level.name, "CAMPAIGN")
 
     def test_frequency_caps_not_on_search(self):
-        self.search_results([self._campaign("SEARCH")])
-        with self.assertRaisesRegex(ToolError, "Display and Demand Gen"):
+        self.search_results([self._campaign("DEMAND_GEN")])
+        with self.assertRaisesRegex(ToolError, "Display campaigns"):
             ca.set_frequency_caps(
                 customer_id=CID,
                 campaign_id="111",

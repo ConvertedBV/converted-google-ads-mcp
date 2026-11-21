@@ -20,6 +20,7 @@ interface: they need a person.
 """
 
 from enum import Enum
+import os
 import re
 
 from fastmcp.exceptions import ToolError
@@ -34,6 +35,7 @@ import ads_mcp.utils as utils
 
 _CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
 _TIME_ZONE_RE = re.compile(r"^[A-Za-z]+(?:/[A-Za-z0-9_+-]+){1,2}$")
+ADMIN_INVITES_ENV_VAR = "GOOGLE_ADS_MCP_ALLOW_ADMIN_INVITES"
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 
 
@@ -203,7 +205,8 @@ def invite_user(
 
     Use it to give a client or colleague access. ADMIN can manage users and
     billing; STANDARD can edit campaigns; READ_ONLY can view; EMAIL_ONLY
-    only gets notifications. The API has no dry run for invitations, so the
+    only gets notifications (ADMIN only when the server allows it). The
+    API has no dry run for invitations, so the
     proposal only checks the input; confirm the address with the user.
     Pending invitations: search on customer_user_access_invitation.
     {workflow}
@@ -221,6 +224,14 @@ def invite_user(
     if not _EMAIL_RE.match(email):
         raise ToolError("Error: 'email_address' is not a valid address.")
     role = mh.enum_value(access_role, AccessRole, "access_role")
+    if role == "ADMIN" and os.environ.get(
+        ADMIN_INVITES_ENV_VAR, ""
+    ).strip().lower() not in ("1", "true", "yes"):
+        raise ToolError(
+            "Error: ADMIN invitations are disabled on this server (they can "
+            "manage users and billing). Invite as STANDARD, or ask the "
+            f"server administrator to set {ADMIN_INVITES_ENV_VAR}=true."
+        )
     ga_client = utils.get_googleads_client(login_customer_id=login_customer_id)
     service = utils.get_googleads_service_from_client(
         ga_client, "CustomerUserAccessInvitationService"
@@ -264,7 +275,6 @@ def invite_user(
 
 
 class LinkAction(str, Enum):
-    REQUEST = "REQUEST"
     ACCEPT = "ACCEPT"
     REJECT = "REJECT"
 
@@ -276,27 +286,24 @@ class LinkAction(str, Enum):
 def manage_merchant_center_link(
     customer_id: str | int,
     action: LinkAction,
-    merchant_center_id: str | None = None,
-    invitation_id: str | None = None,
+    invitation_id: str,
     login_customer_id: str | int | None = None,
     validate_only: bool = True,
     checksum: str | None = None,
 ) -> str:
-    """Links a Merchant Center account for Shopping and retail PMax.
+    """Answers a Merchant Center link request for Shopping and retail PMax.
 
-    - REQUEST: ask `merchant_center_id` for a link; someone accepts it in
-      Merchant Center.
-    - ACCEPT / REJECT: answer a link request Merchant Center sent to this
-      account (`invitation_id` from the search tool on
-      product_link_invitation, status PENDING_APPROVAL).
-    Existing links: search on product_link. The API has no dry run here, so
-    the proposal checks the input and the current invitation state.
+    A link starts in Merchant Center (Settings > Linked accounts > Google
+    Ads, with this account's customer ID); the Google Ads API cannot send
+    the request. Accept or reject the waiting invitation here
+    (`invitation_id` from the search tool on product_link_invitation,
+    status PENDING_APPROVAL). Existing links: search on product_link. The
+    API has no dry run here, so the proposal checks the invitation state.
     {workflow}
     Args:
         customer_id: Google Ads Customer ID (digits or hyphenated).
-        action: REQUEST, ACCEPT or REJECT.
-        merchant_center_id: Merchant Center ID (REQUEST).
-        invitation_id: product_link_invitation ID (ACCEPT / REJECT).
+        action: ACCEPT or REJECT.
+        invitation_id: product_link_invitation ID.
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
         validate_only: True (default) proposes; False commits (needs checksum).
@@ -310,74 +317,44 @@ def manage_merchant_center_link(
     )
     enums = ga_client.enums
 
-    if act == "REQUEST":
-        merchant = mh.require_simple_id(
-            merchant_center_id, "merchant_center_id"
+    invite = mh.require_simple_id(invitation_id, "invitation_id")
+    rn = f"customers/{cid}/productLinkInvitations/{invite}"
+    rows = mh.search(
+        ga_client,
+        cid,
+        "SELECT product_link_invitation.status, "
+        "product_link_invitation.merchant_center.merchant_center_id "
+        "FROM product_link_invitation "
+        f"WHERE product_link_invitation.resource_name = '{rn}' "
+        "AND product_link_invitation.type = 'MERCHANT_CENTER'",
+    )
+    if not rows:
+        raise ToolError(
+            f"Error: Merchant Center invitation {invite} was not found."
         )
-        links = mh.search(
-            ga_client,
-            cid,
-            "SELECT product_link.merchant_center.merchant_center_id "
-            "FROM product_link WHERE product_link.type = 'MERCHANT_CENTER'",
+    status = mh.enum_name(rows[0].product_link_invitation.status)
+    if status != "PENDING_APPROVAL":
+        raise ToolError(
+            f"Error: Invitation {invite} is {status}; only invitations "
+            "waiting for this account's approval can be answered."
         )
-        if any(
-            str(r.product_link.merchant_center.merchant_center_id) == merchant
-            for r in links
-        ):
-            raise ToolError(
-                f"Error: Merchant Center {merchant} is already linked."
-            )
+    new_status = "ACCEPTED" if act == "ACCEPT" else "REJECTED"
 
-        def _commit() -> str:
-            request = ga_client.get_type("CreateProductLinkInvitationRequest")
-            request.customer_id = cid
-            request.product_link_invitation.merchant_center.merchant_center_id = int(
-                merchant
-            )
-            response = service.create_product_link_invitation(request=request)
-            return (
-                f"Requested a link with Merchant Center {merchant} "
-                f"({response.resource_name}); accept it in Merchant Center."
-            )
-
-        payload = {"merchant_center_id": merchant}
-        fields = {"Merchant Center": merchant, "Status": "request sent"}
-    else:
-        invite = mh.require_simple_id(invitation_id, "invitation_id")
-        rn = f"customers/{cid}/productLinkInvitations/{invite}"
-        rows = mh.search(
-            ga_client,
-            cid,
-            "SELECT product_link_invitation.status, "
-            "product_link_invitation.merchant_center.merchant_center_id "
-            "FROM product_link_invitation "
-            f"WHERE product_link_invitation.resource_name = '{rn}'",
+    def _commit() -> str:
+        request = ga_client.get_type("UpdateProductLinkInvitationRequest")
+        request.customer_id = cid
+        request.resource_name = rn
+        request.product_link_invitation_status = getattr(
+            enums.ProductLinkInvitationStatusEnum, new_status
         )
-        if not rows:
-            raise ToolError(f"Error: Invitation {invite} was not found.")
-        status = mh.enum_name(rows[0].product_link_invitation.status)
-        if status != "PENDING_APPROVAL":
-            raise ToolError(
-                f"Error: Invitation {invite} is {status}; only invitations "
-                "waiting for this account's approval can be answered."
-            )
-        new_status = "ACCEPTED" if act == "ACCEPT" else "REJECTED"
+        service.update_product_link_invitation(request=request)
+        return f"Invitation {invite} {new_status.lower()}."
 
-        def _commit() -> str:
-            request = ga_client.get_type("UpdateProductLinkInvitationRequest")
-            request.customer_id = cid
-            request.resource_name = rn
-            request.product_link_invitation_status = getattr(
-                enums.ProductLinkInvitationStatusEnum, new_status
-            )
-            service.update_product_link_invitation(request=request)
-            return f"Invitation {invite} {new_status.lower()}."
-
-        merchant = str(
-            rows[0].product_link_invitation.merchant_center.merchant_center_id
-        )
-        payload = {"invitation_id": invite}
-        fields = {"Merchant Center": merchant, "Status": new_status}
+    merchant = str(
+        rows[0].product_link_invitation.merchant_center.merchant_center_id
+    )
+    payload = {"invitation_id": invite}
+    fields = {"Merchant Center": merchant, "Status": new_status}
 
     return pac.propose_and_confirm(
         customer_id=cid,
@@ -389,7 +366,7 @@ def manage_merchant_center_link(
             **payload,
         },
         change_items=pac.build_change_items(
-            operation="CREATE" if act == "REQUEST" else "UPDATE",
+            operation="UPDATE",
             entity_readable="Merchant Center link",
             primary_key_readable=f"customers/{cid}",
             fields=fields,

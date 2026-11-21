@@ -231,7 +231,10 @@ def upload_conversion_adjustments(
     def _describe(row: dict) -> str:
         key = row["order_id"] or f"gclid {row['gclid'][:6]}…"
         if row["type"] == "RESTATEMENT":
-            return f"{key}: new value {row['value']:.2f} {currency}"
+            return (
+                f"{key}: new value {row['value']:.2f} {currency} "
+                "(value-based bidding learns from it)"
+            )
         return f"{key}: retracted"
 
     change_items = [
@@ -258,6 +261,48 @@ def upload_conversion_adjustments(
         commit_fn=_commit,
         error_prefix="Failed to upload conversion adjustments",
     )
+
+
+def _guard_value_rule(
+    ga_client: Any, cid: str, act: str, amount: float
+) -> None:
+    """Caps value rules like a target ROAS change: raising conversion values
+    makes value-based bidding bid more, so the increase per change is
+    limited by the server's safety limit."""
+    max_pct = mh.get_max_increase_pct()
+    if max_pct is None:
+        return
+    limit = 1 + max_pct / 100
+    if act == "MULTIPLY":
+        if amount > limit:
+            raise ToolError(
+                f"Error: A factor of {amount:g} raises conversion values more "
+                f"than the {max_pct:.0f}% safety limit; use at most "
+                f"{limit:g}, or apply it in steps."
+            )
+        return
+    rows = mh.search(
+        ga_client,
+        cid,
+        "SELECT metrics.conversions, metrics.conversions_value FROM customer "
+        "WHERE segments.date DURING LAST_30_DAYS",
+    )
+    conversions = sum(float(r.metrics.conversions) for r in rows)
+    total = sum(float(r.metrics.conversions_value) for r in rows)
+    if conversions <= 0 or total <= 0:
+        raise ToolError(
+            "Error: ADD and SET rules need an average conversion value as "
+            "baseline, and this account has none in the last 30 days. Use a "
+            "MULTIPLY rule instead."
+        )
+    average = total / conversions
+    new_average = average + amount if act == "ADD" else amount
+    if new_average > average * limit:
+        raise ToolError(
+            f"Error: This rule would raise the average conversion value from "
+            f"{average:.2f} to {new_average:.2f}, more than the "
+            f"{max_pct:.0f}% safety limit."
+        )
 
 
 class ValueRuleAction(str, Enum):
@@ -310,7 +355,8 @@ def manage_conversion_value_rules(
         customer_id: Google Ads Customer ID (digits or hyphenated).
         operation: CREATE (default), PAUSE, ENABLE or REMOVE.
         action: MULTIPLY, ADD or SET (CREATE).
-        value: Factor (MULTIPLY, 0.1-10) or amount (ADD, SET).
+        value: Factor (MULTIPLY, 0.1-10) or amount (ADD, SET). Increases
+            are capped by the safety limit, like a target ROAS change.
         location_ids: Geo target constant IDs (condition).
         devices: MOBILE, DESKTOP and/or TABLET (condition).
         user_list_ids: User list IDs, e.g. Customer Match (condition).
@@ -326,22 +372,74 @@ def manage_conversion_value_rules(
     enums = ga_client.enums
     operations: list[Any] = []
     change_items: list[pac.ChangeItem] = []
+    rules = {
+        r.conversion_value_rule.resource_name: r.conversion_value_rule
+        for r in mh.search(
+            ga_client,
+            cid,
+            "SELECT conversion_value_rule.resource_name, "
+            "conversion_value_rule.status, "
+            "conversion_value_rule.action.operation, "
+            "conversion_value_rule.action.value FROM conversion_value_rule "
+            "WHERE conversion_value_rule.status != 'REMOVED'",
+        )
+    }
+    sets = [
+        r.conversion_value_rule_set
+        for r in mh.search(
+            ga_client,
+            cid,
+            "SELECT conversion_value_rule_set.resource_name, "
+            "conversion_value_rule_set.conversion_value_rules, "
+            "conversion_value_rule_set.dimensions, "
+            "conversion_value_rule_set.status, "
+            "conversion_value_rule_set.conversion_action_categories "
+            "FROM conversion_value_rule_set WHERE "
+            "conversion_value_rule_set.attachment_type = 'CUSTOMER' "
+            "AND conversion_value_rule_set.status != 'REMOVED'",
+        )
+    ]
+
+    def _set_op(rule_set: Any) -> Any:
+        op = ga_client.get_type("MutateOperation")
+        op.conversion_value_rule_set_operation.update.resource_name = (
+            rule_set.resource_name
+        )
+        operations.append(op)
+        return op.conversion_value_rule_set_operation
+
+    def _set_status(rule_set: Any, status: str) -> None:
+        set_op = _set_op(rule_set)
+        set_op.update.status = getattr(
+            enums.ConversionValueRuleSetStatusEnum, status
+        )
+        set_op.update_mask.paths.append("status")
+        change_items.append(
+            pac.ChangeItem(
+                "UPDATE",
+                "Value rule set",
+                rule_set.resource_name,
+                "Status",
+                status,
+            )
+        )
 
     if op_value != "CREATE":
         ids = mh.require_ids(rule_ids, "rule_ids")
         rns = [f"customers/{cid}/conversionValueRules/{i}" for i in ids]
-        rows = mh.search(
-            ga_client,
-            cid,
-            "SELECT conversion_value_rule.resource_name, "
-            "conversion_value_rule.status FROM conversion_value_rule "
-            "WHERE conversion_value_rule.resource_name IN "
-            f"({mh.quoted_list(rns)})",
-        )
-        found = {r.conversion_value_rule.resource_name: r for r in rows}
-        missing = [rn for rn in rns if rn not in found]
+        missing = [rn for rn in rns if rn not in rules]
         if missing:
             raise ToolError(f"Error: Rules not found: {', '.join(missing)}")
+        if op_value == "ENABLE":
+            for rn in rns:
+                _guard_value_rule(
+                    ga_client,
+                    cid,
+                    mh.enum_name(rules[rn].action.operation),
+                    float(rules[rn].action.value),
+                )
+        chosen = set(rns)
+        rule_ops = []
         for rn in rns:
             op = ga_client.get_type("MutateOperation")
             rule_op = op.conversion_value_rule_operation
@@ -354,7 +452,7 @@ def manage_conversion_value_rules(
                     "PAUSED" if op_value == "PAUSE" else "ENABLED",
                 )
                 rule_op.update_mask.paths.append("status")
-            operations.append(op)
+            rule_ops.append(op)
             change_items.append(
                 pac.ChangeItem(
                     op_value if op_value == "REMOVE" else "UPDATE",
@@ -366,6 +464,53 @@ def manage_conversion_value_rules(
                     ),
                 )
             )
+        enabled_after = {
+            rn
+            for rn, rule in rules.items()
+            if mh.enum_name(rule.status) == "ENABLED" and rn not in chosen
+        } | (chosen if op_value == "ENABLE" else set())
+        sets_after = []
+        for rule_set in sets:
+            members = list(rule_set.conversion_value_rules)
+            if not chosen & set(members):
+                continue
+            status = mh.enum_name(rule_set.status)
+            if op_value == "REMOVE":
+                # A rule in a set cannot be removed; take it out first.
+                remaining = [m for m in members if m not in chosen]
+                if not remaining:
+                    op = ga_client.get_type("MutateOperation")
+                    op.conversion_value_rule_set_operation.remove = (
+                        rule_set.resource_name
+                    )
+                    operations.append(op)
+                    change_items.append(
+                        pac.ChangeItem(
+                            "REMOVE",
+                            "Value rule set",
+                            rule_set.resource_name,
+                            "Rules",
+                            "no rules left",
+                        )
+                    )
+                    continue
+                set_op = _set_op(rule_set)
+                set_op.update.conversion_value_rules.extend(remaining)
+                set_op.update_mask.paths.append("conversion_value_rules")
+                if status == "ENABLED" and not set(remaining) & enabled_after:
+                    set_op.update.status = (
+                        enums.ConversionValueRuleSetStatusEnum.PAUSED
+                    )
+                    set_op.update_mask.paths.append("status")
+            elif op_value == "PAUSE":
+                # The set must be paused before its last enabled rule.
+                if status == "ENABLED" and not set(members) & enabled_after:
+                    _set_status(rule_set, "PAUSED")
+            elif status == "PAUSED":
+                sets_after.append(rule_set)
+        operations.extend(rule_ops)
+        for rule_set in sets_after:
+            _set_status(rule_set, "ENABLED")
         payload: dict[str, Any] = {"rule_ids": ids}
     else:
         act = (
@@ -378,6 +523,7 @@ def manage_conversion_value_rules(
             raise ToolError("Error: A MULTIPLY factor must be 0.1-10.")
         if act != "MULTIPLY" and amount < 0:
             raise ToolError("Error: 'value' must not be negative.")
+        _guard_value_rule(ga_client, cid, act, amount)
         locations = (
             mh.require_ids(location_ids, "location_ids") if location_ids else []
         )
@@ -441,19 +587,17 @@ def manage_conversion_value_rules(
             )
         )
 
-        sets = mh.search(
-            ga_client,
-            cid,
-            "SELECT conversion_value_rule_set.resource_name, "
-            "conversion_value_rule_set.conversion_value_rules, "
-            "conversion_value_rule_set.dimensions "
-            "FROM conversion_value_rule_set WHERE "
-            "conversion_value_rule_set.attachment_type = 'CUSTOMER' "
-            "AND conversion_value_rule_set.status != 'REMOVED'",
-        )
+        # The general account set: enabled, not limited to store visits or
+        # store sales (those are separate customer-level sets).
+        general = [
+            s
+            for s in sets
+            if mh.enum_name(s.status) == "ENABLED"
+            and not list(s.conversion_action_categories)
+        ]
         set_op = ga_client.get_type("MutateOperation")
-        if sets:
-            current = sets[0].conversion_value_rule_set
+        if general:
+            current = general[0]
             update = set_op.conversion_value_rule_set_operation.update
             update.resource_name = current.resource_name
             update.conversion_value_rules.extend(
@@ -482,7 +626,7 @@ def manage_conversion_value_rules(
         operations.append(set_op)
         change_items.append(
             pac.ChangeItem(
-                "UPDATE" if sets else "CREATE",
+                "UPDATE" if general else "CREATE",
                 "Value rule set",
                 set_label,
                 "Rules",
