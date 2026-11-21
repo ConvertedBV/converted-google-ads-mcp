@@ -65,6 +65,41 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   `upload_customer_match` (customer lists for targeting, exclusion or
 >   PMax signals: emails, phones and names are normalized and SHA-256
 >   hashed on the server, EU consent is required and sent as GRANTED).
+> - **Custom segments and brand controls**: `manage_custom_segment` (people
+>   described by search terms, websites or apps, for targeting, Demand Gen
+>   and PMax signals), `suggest_brands` + `manage_brand_list` (brand
+>   exclusions on Search and PMax, brand restrictions for Search broad match
+>   and AI Max) and account-level negative keyword lists
+>   (`manage_shared_negative_list` with `account_level=True`).
+> - **Account administration** (`account` namespace): `create_client_account`
+>   (new advertiser account under a manager; currency and time zone are
+>   fixed afterwards), `invite_user` (access by email; ADMIN only with
+>   `GOOGLE_ADS_MCP_ALLOW_ADMIN_INVITES=true`) and
+>   `manage_merchant_center_link` (accept or reject a link request sent from
+>   Merchant Center). `list_payments_accounts`,
+>   `create_billing_setup` (on an existing payments account, e.g.
+>   consolidated billing) and `manage_account_budget` (spending caps, a
+>   higher cap limited by the safety limit). Payment details and terms stay
+>   in the Google Ads interface.
+> - **Product groups**: `set_product_groups` (Shopping: one level by brand,
+>   top-level category or product type, custom label, item ID, condition or
+>   channel, with bids or exclusions; each bid capped against that group's
+>   current bid) and `set_listing_group_filters` (retail PMax).
+> - **Automation and delivery**: `update_campaign_automation` (AI Max for
+>   Search, final URL expansion, text automation, URL exclusions) and
+>   `set_frequency_caps` (Display).
+> - **Fine-tuning**: `update_ad_group_settings` (name, ad group target
+>   CPA/ROAS within the safety limit, ad rotation, tracking) and
+>   `manage_ad_customizer` (values for {CUSTOMIZER.name:default} in RSAs at
+>   account, campaign or ad group level).
+> - **Measurement**: `upload_conversion_adjustments` (retract or restate
+>   reported conversions) and `manage_conversion_value_rules` (value by
+>   location, device or audience, capped by the safety limit like a target
+>   ROAS change).
+> - `create_app_campaign` (in `campaign_builder`): App campaigns for
+>   installs or in-app actions.
+> - The full plan and what the API does not allow:
+>   [docs/ROADMAP.md](docs/ROADMAP.md).
 > - `remove_entities` (in `campaign_management`): permanent removal of
 >   campaigns, ad groups and asset groups (paused first) and ads or
 >   keywords, with 30-day spend and conversions in the proposal.

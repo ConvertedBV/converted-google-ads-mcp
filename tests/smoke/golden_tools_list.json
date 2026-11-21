@@ -7,6 +7,206 @@
         }
       },
       "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Connects the account to an existing payments account, starting now.\n\nNeeded before a new account can run ads (unless billing was set up in\nthe interface). Pick the payments account with list_payments_accounts;\nits currency must match the account. The API has no dry run for billing\nsetups, so the proposal checks the input and that the account has no\nactive or pending setup. Then set a spending cap with\nmanage_account_budget when the payments account uses monthly invoicing.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "payments_account_id": {
+            "description": "ID from list_payments_accounts, e.g.\n1234-5678-9012-3456.",
+            "type": "string"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "payments_account_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_create_billing_setup",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account Create Billing Setup"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Creates a new client (advertiser) account under a manager account.\n\nCurrency and time zone cannot be changed after creation, so confirm\nthem with the user. The new account has no billing yet: someone sets up\nbilling (or consolidated billing) and accepts any terms in Google Ads\nbefore ads can run. Afterwards turn on auto-tagging with\nupdate_account_settings and build campaigns in the new account (with\nthe manager as login_customer_id).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "currency_code": {
+            "default": "EUR",
+            "description": "ISO 4217 code, default EUR (cannot change later).",
+            "type": "string"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "The manager (MCC) account to create it under. With\nGOOGLE_ADS_MCP_ACCOUNT_IDS set, add the new account to that\nlist before working in it."
+          },
+          "final_url_suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional account final URL suffix."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional higher manager for the\nlogin-customer-id header."
+          },
+          "name": {
+            "description": "Account name, e.g. 'Klantnaam BV'.",
+            "type": "string"
+          },
+          "time_zone": {
+            "default": "Europe/Brussels",
+            "description": "Time zone ID, default Europe/Brussels (cannot change\nlater).",
+            "type": "string"
+          },
+          "tracking_url_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional account tracking template."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "name": "account_create_client_account",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account Create Client Account"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
         "readOnlyHint": true
       },
       "description": "Finds location IDs for targeting by name (cities, regions, countries).\n\nReturns geo target constant IDs with their full name, type and reach, to\nuse as location_ids in the campaign tools. Searches in the given country\n(default BE; pass null for worldwide) and language.",
@@ -236,6 +436,412 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Account Get Change History"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Invites a person to an account by email (Google sends the email).\n\nUse it to give a client or colleague access. ADMIN can manage users and\nbilling; STANDARD can edit campaigns; READ_ONLY can view; EMAIL_ONLY\nonly gets notifications (ADMIN only when the server allows it). The\nAPI has no dry run for invitations, so the\nproposal only checks the input; confirm the address with the user.\nPending invitations: search on customer_user_access_invitation.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "access_role": {
+            "default": "STANDARD",
+            "description": "STANDARD (default), ADMIN, READ_ONLY or EMAIL_ONLY.",
+            "enum": [
+              "ADMIN",
+              "STANDARD",
+              "READ_ONLY",
+              "EMAIL_ONLY"
+            ],
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Account to give access to."
+          },
+          "email_address": {
+            "description": "The person's Google account email.",
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "email_address"
+        ],
+        "type": "object"
+      },
+      "name": "account_invite_user",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account Invite User"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Lists the payments accounts this account can be billed to.\n\nUse the payments_account_id in create_billing_setup. For consolidated\nbilling, call it on the client account with the paying manager as\nlogin_customer_id. Billing setups and account budgets are visible with\nthe search tool (billing_setup, account_budget).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          }
+        },
+        "required": [
+          "customer_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_list_payments_accounts",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account List Payments Accounts"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Sets an account budget: the most the account may spend in total.\n\nFor accounts on monthly invoicing (consolidated billing). Ads stop when\nthe limit is reached. CREATE: `billing_setup_id`, `spending_limit` and\noptional `end_date`, `name`, `purchase_order_number`; it starts now.\nUPDATE: `account_budget_id` with a new `spending_limit` and/or\n`end_date` (a higher limit is capped by the safety limit per change).\nEND: stop the budget now. Changes are proposals that Google approves\n(usually immediately); follow them with the search tool on\naccount_budget_proposal.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "account_budget_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Existing account budget (UPDATE, END)."
+          },
+          "billing_setup_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Approved billing setup (CREATE)."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional last day YYYY-MM-DD; none = runs until ended."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Budget name (CREATE)."
+          },
+          "operation": {
+            "description": "CREATE, UPDATE or END.",
+            "enum": [
+              "CREATE",
+              "UPDATE",
+              "END"
+            ],
+            "type": "string"
+          },
+          "purchase_order_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional PO number shown on invoices."
+          },
+          "spending_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Total spending limit in the account currency."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "operation"
+        ],
+        "type": "object"
+      },
+      "name": "account_manage_account_budget",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account Manage Account Budget"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Answers a Merchant Center link request for Shopping and retail PMax.\n\nA link starts in Merchant Center (Settings > Linked accounts > Google\nAds, with this account's customer ID); the Google Ads API cannot send\nthe request. Accept or reject the waiting invitation here\n(`invitation_id` from the search tool on product_link_invitation,\nstatus PENDING_APPROVAL). Existing links: search on product_link. The\nAPI has no dry run here, so the proposal checks the invitation state.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "ACCEPT or REJECT.",
+            "enum": [
+              "ACCEPT",
+              "REJECT"
+            ],
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "invitation_id": {
+            "description": "product_link_invitation ID.",
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "action",
+          "invitation_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_manage_merchant_center_link",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account Manage Merchant Center Link"
     },
     {
       "_meta": {
@@ -1180,6 +1786,186 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
+      "description": "Creates or edits a custom segment from keywords, websites and apps.\n\nExamples: people searching for \"airco installateur\" and \"warmtepomp\nprijs\" (segment_type SEARCH), or people interested in what competitors'\nwebsites offer (urls of those sites, AUTO). Operations:\n- CREATE: `name`, `segment_type` and members.\n- REPLACE_MEMBERS: `custom_audience_id` and the complete new member list.\n- RENAME: `custom_audience_id` and `name`.\nUse the ID in manage_audience_targeting, Demand Gen or as a PMax signal.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "apps": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "App package names or App Store IDs."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "custom_audience_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Existing custom segment ID."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional description (CREATE)."
+          },
+          "keywords": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Interests or search terms, max 80 characters and 10\nwords each."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Segment name (CREATE, RENAME)."
+          },
+          "operation": {
+            "default": "CREATE",
+            "description": "CREATE (default), REPLACE_MEMBERS or RENAME.",
+            "enum": [
+              "CREATE",
+              "REPLACE_MEMBERS",
+              "RENAME"
+            ],
+            "type": "string"
+          },
+          "segment_type": {
+            "default": "AUTO",
+            "description": "AUTO (default) or SEARCH.",
+            "enum": [
+              "AUTO",
+              "SEARCH",
+              "INTEREST",
+              "PURCHASE_INTENT"
+            ],
+            "type": "string"
+          },
+          "urls": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Websites people visit, e.g. competitor.be."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_manage_custom_segment",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Manage Custom Segment"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
       "description": "Excludes (or re-includes) age ranges and genders in an ad group.\n\nEXCLUDE stops showing ads to those demographics; REMOVE_EXCLUSIONS lifts\nexisting exclusions for the given values. Works for Search, Display and\nDemand Gen ad groups.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -1878,6 +2664,281 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Campaign Builder Create Ad Group"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Builds an App campaign (installs or in-app actions) in one step.\n\nCreates the budget, the campaign (app, store, goal, bidding), location\nand language targeting and one ad group with an app ad: 2-5 headlines\n(max 30), 1-5 descriptions (max 90), and optional images (asset IDs or\nhttps URLs: landscape 1.91:1, square 1:1, portrait 4:5) and YouTube\nvideos. Google picks the placements. INSTALLS can take a target cost\nper install; IN_APP_ACTIONS needs a target CPA and the in-app\nconversion actions to optimize for (from get_conversion_setup). The\napp must be published in the store. PAUSED by default.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "description": "Android package name (e.g. com.example.app) or Apple App\nStore ID (digits).",
+            "type": "string"
+          },
+          "app_store": {
+            "description": "GOOGLE_APP_STORE or APPLE_APP_STORE.",
+            "enum": [
+              "GOOGLE_APP_STORE",
+              "APPLE_APP_STORE"
+            ],
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "contains_eu_political_advertising": {
+            "default": false,
+            "description": "Required EU declaration.",
+            "type": "boolean"
+          },
+          "conversion_action_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "In-app conversion actions (IN_APP_ACTIONS)."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "daily_budget": {
+            "description": "Average daily budget in the account currency.",
+            "type": "number"
+          },
+          "descriptions": {
+            "description": "1-5 descriptions, max 90 characters.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional end date YYYY-MM-DD."
+          },
+          "goal": {
+            "default": "INSTALLS",
+            "description": "INSTALLS (default) or IN_APP_ACTIONS.",
+            "enum": [
+              "INSTALLS",
+              "IN_APP_ACTIONS"
+            ],
+            "type": "string"
+          },
+          "headlines": {
+            "description": "2-5 headlines, max 30 characters.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "landscape_images": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Landscape 1.91:1 images (max 20 images in total)."
+          },
+          "language_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Language constant IDs; empty = all languages."
+          },
+          "location_ids": {
+            "description": "Geo target constant IDs (at least one).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "name": {
+            "description": "Campaign name.",
+            "type": "string"
+          },
+          "portrait_images": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Portrait 4:5 images."
+          },
+          "square_images": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Square 1:1 images."
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional start date YYYY-MM-DD."
+          },
+          "status": {
+            "default": "PAUSED",
+            "description": "PAUSED (default) or ENABLED.",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ],
+            "type": "string"
+          },
+          "target_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target cost per install (INSTALLS, optional) or per\nin-app action (IN_APP_ACTIONS, required)."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          },
+          "youtube_video_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Up to 20 YouTube video IDs."
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "daily_budget",
+          "app_id",
+          "app_store",
+          "location_ids",
+          "headlines",
+          "descriptions"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_builder_create_app_campaign",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Builder Create App Campaign"
     },
     {
       "_meta": {
@@ -5368,6 +6429,130 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
+      "description": "Sets an ad customizer value (creating the customizer if needed).\n\nResponsive search ads insert it with {CUSTOMIZER.name:default}, e.g.\nheadline \"Airco vanaf {CUSTOMIZER.price:\u20ac1.499}\". Set one value for the\nwhole account (CUSTOMER) and override it per campaign or ad group;\nsetting a value again replaces it. Values: TEXT (max 80 chars), NUMBER\n(e.g. 12), PRICE (e.g. \u20ac1.499 or 1499 EUR), PERCENT (e.g. 20%).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "customizer_type": {
+            "default": "TEXT",
+            "description": "TEXT (default), NUMBER, PRICE or PERCENT; used when\nthe customizer is new, must match an existing one.",
+            "enum": [
+              "TEXT",
+              "NUMBER",
+              "PRICE",
+              "PERCENT"
+            ],
+            "type": "string"
+          },
+          "entity_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Campaign or ad group IDs for CAMPAIGN / AD_GROUP."
+          },
+          "level": {
+            "default": "CUSTOMER",
+            "description": "CUSTOMER (default), CAMPAIGN or AD_GROUP.",
+            "enum": [
+              "CUSTOMER",
+              "CAMPAIGN",
+              "AD_GROUP"
+            ],
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "name": {
+            "description": "Customizer name (letters, digits, underscores), e.g. price.",
+            "type": "string"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          },
+          "value": {
+            "description": "The value to show.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_manage_ad_customizer",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Manage Ad Customizer"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
       "description": "Creates or removes smart bidding data exclusions and seasonality\nadjustments.\n\n- DATA_EXCLUSION: for a period where conversion tracking was broken\n  (e.g. a missing tag), so smart bidding ignores that data. Can be in the\n  past or future.\n- SEASONALITY_ADJUSTMENT: for a short future event (max 14 days, ideally\n  1-7) with an expected conversion rate change, e.g. 1.5 for +50% during\n  a sale. Not for regular seasonality, which bidding learns itself.\nScope: `campaign_ids` (those campaigns), else `channels` (all campaigns\nof those types), else the whole account. REMOVE needs `adjustment_id`\n(from bidding_data_exclusion / bidding_seasonality_adjustment).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -5561,6 +6746,174 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Campaign Management Manage Bidding Adjustments"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Manages brand lists and the campaigns that use them.\n\nTypical uses: exclude competitors' brands, exclude your own brand from a\nnon-brand Performance Max or Search campaign, or restrict a brand\ncampaign's broad match / AI Max to your own brand (`use=RESTRICT`).\nOperations:\n- CREATE_LIST: `name`, `brand_ids` (from suggest_brands) and optionally\n  `campaign_ids` + `use` to attach right away; created atomically.\n- ADD_BRANDS / REMOVE_BRANDS: `shared_set_id` plus `brand_ids` or\n  `criterion_ids` (shared_criterion.criterion_id).\n- ATTACH_CAMPAIGNS / DETACH_CAMPAIGNS: `shared_set_id`, `campaign_ids`\n  (+ `use` when attaching).\nFind brand lists with the search tool on shared_set (type BRANDS).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "brand_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Brand IDs from suggest_brands."
+          },
+          "campaign_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Campaigns to attach or detach."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "criterion_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Brand criterion IDs to remove from the list."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name for a new brand list (CREATE_LIST)."
+          },
+          "operation": {
+            "description": "One of the operations above.",
+            "enum": [
+              "CREATE_LIST",
+              "ADD_BRANDS",
+              "REMOVE_BRANDS",
+              "ATTACH_CAMPAIGNS",
+              "DETACH_CAMPAIGNS"
+            ],
+            "type": "string"
+          },
+          "shared_set_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Numeric ID of an existing brand list."
+          },
+          "use": {
+            "default": "EXCLUDE",
+            "description": "EXCLUDE (default; Search and PMax) or RESTRICT (Search only).",
+            "enum": [
+              "EXCLUDE",
+              "RESTRICT"
+            ],
+            "type": "string"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "operation"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_manage_brand_list",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Manage Brand List"
     },
     {
       "_meta": {
@@ -6135,10 +7488,15 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
-      "description": "Manages shared negative keyword lists and the campaigns using them.\n\nOperations:\n- CREATE_LIST: `name` plus optional `keywords` (+ `match_type`) and\n  `campaign_ids` to attach right away; created atomically.\n- ADD_KEYWORDS / REMOVE_KEYWORDS: `shared_set_id` plus `keywords` or\n  `criterion_ids` (shared_criterion.criterion_id).\n- ATTACH_CAMPAIGNS / DETACH_CAMPAIGNS: `shared_set_id` plus `campaign_ids`.\nFind lists with the search tool on the shared_set resource.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "description": "Manages shared negative keyword lists and the campaigns using them.\n\nOperations:\n- CREATE_LIST: `name` plus optional `keywords` (+ `match_type`) and\n  `campaign_ids` to attach right away; created atomically. With\n  `account_level=True` the list applies to every Search, Shopping and\n  Performance Max campaign of the account (one per account) instead.\n- ADD_KEYWORDS / REMOVE_KEYWORDS: `shared_set_id` plus `keywords` or\n  `criterion_ids` (shared_criterion.criterion_id).\n- ATTACH_CAMPAIGNS / DETACH_CAMPAIGNS: `shared_set_id` plus `campaign_ids`.\nFind lists with the search tool on the shared_set resource.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
+          "account_level": {
+            "default": false,
+            "description": "CREATE_LIST only: an account-wide list.",
+            "type": "boolean"
+          },
           "campaign_ids": {
             "anyOf": [
               {
@@ -6700,6 +8058,487 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
+      "description": "Limits how often one person sees a Display campaign.\n\nDemand Gen does not support frequency caps; Video campaigns cannot be\nchanged through the API.\n\nReplaces the campaign's frequency caps; pass an empty list to remove\nthem. Example: [{\"max_events\": 3, \"time_unit\": \"WEEK\"}] for at most\nthree impressions per person per week.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "campaign_id": {
+            "description": "Display campaign ID.",
+            "type": "string"
+          },
+          "caps": {
+            "description": "Up to 3 caps (one per event and time unit).",
+            "items": {
+              "description": "At most `max_events` per person per time unit.",
+              "properties": {
+                "event": {
+                  "default": "IMPRESSION",
+                  "description": "IMPRESSION (default) or VIDEO_VIEW.",
+                  "enum": [
+                    "IMPRESSION",
+                    "VIDEO_VIEW"
+                  ],
+                  "type": "string"
+                },
+                "max_events": {
+                  "description": "Maximum per person, e.g. 3.",
+                  "type": "integer"
+                },
+                "time_unit": {
+                  "default": "WEEK",
+                  "description": "DAY, WEEK or MONTH.",
+                  "enum": [
+                    "DAY",
+                    "WEEK",
+                    "MONTH"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "max_events"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "campaign_id",
+          "caps"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_set_frequency_caps",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Set Frequency Caps"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Chooses which products a retail Performance Max asset group shows.\n\nReplaces the asset group's listing group filters with one node per value\n(included, or excluded with `excluded`) and \"everything else\" (included,\nor excluded with `other_excluded`). Example: only advertise brand\n'daikin' (values=[{\"value\": \"daikin\"}], other_excluded=True) or\nexclude custom label 0 'outlet'. Bids do not apply in PMax.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_group_id": {
+            "description": "Asset group in a PMax campaign with Merchant Center.",
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "custom_label_index": {
+            "default": 0,
+            "description": "0-4 for CUSTOM_LABEL.",
+            "type": "integer"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "dimension": {
+            "description": "BRAND, CATEGORY, PRODUCT_TYPE, CUSTOM_LABEL, ITEM_ID,\nCONDITION or CHANNEL.",
+            "enum": [
+              "BRAND",
+              "CATEGORY",
+              "PRODUCT_TYPE",
+              "CUSTOM_LABEL",
+              "ITEM_ID",
+              "CONDITION",
+              "CHANNEL"
+            ],
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "other_excluded": {
+            "default": false,
+            "description": "Exclude every product not listed.",
+            "type": "boolean"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          },
+          "values": {
+            "description": "{\"value\": \"daikin\"} or {\"value\": \"outlet\", \"excluded\": true}.",
+            "items": {
+              "description": "One product group: a dimension value with its bid or exclusion.",
+              "properties": {
+                "cpc_bid": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Max CPC for this group (Shopping manual CPC only)."
+                },
+                "excluded": {
+                  "default": false,
+                  "description": "Do not advertise.",
+                  "type": "boolean"
+                },
+                "value": {
+                  "description": "Brand, product type, custom label or item ID text; a numeric category ID; NEW/USED/REFURBISHED; or ONLINE/LOCAL.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "customer_id",
+          "asset_group_id",
+          "dimension",
+          "values"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_set_listing_group_filters",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Set Listing Group Filters"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Splits a Shopping ad group's products by one dimension, with bids.\n\nReplaces the ad group's product group tree with: one group per value\n(own max CPC, or excluded) and \"everything else\" (`other_cpc_bid`, or\nexcluded with `other_excluded`). Example: bid more on brand 'daikin',\nexclude 'used' products, or exclude custom label 0 'low margin'.\nProduct dimension values come from the Merchant Center feed (find them\nwith the search tool on shopping_performance_view). Bids above the\ncurrent highest bid in the ad group are capped by the safety limit.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "ad_group_id": {
+            "description": "Shopping product ad group ID.",
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "custom_label_index": {
+            "default": 0,
+            "description": "0-4 for CUSTOM_LABEL.",
+            "type": "integer"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "dimension": {
+            "description": "BRAND, CATEGORY, PRODUCT_TYPE, CUSTOM_LABEL, ITEM_ID,\nCONDITION or CHANNEL.",
+            "enum": [
+              "BRAND",
+              "CATEGORY",
+              "PRODUCT_TYPE",
+              "CUSTOM_LABEL",
+              "ITEM_ID",
+              "CONDITION",
+              "CHANNEL"
+            ],
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "other_cpc_bid": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Max CPC for everything else (default: the ad group's\ndefault bid)."
+          },
+          "other_excluded": {
+            "default": false,
+            "description": "Exclude everything else instead.",
+            "type": "boolean"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          },
+          "values": {
+            "description": "Groups: {\"value\": \"daikin\", \"cpc_bid\": 0.8} or\n{\"value\": \"used\", \"excluded\": true}.",
+            "items": {
+              "description": "One product group: a dimension value with its bid or exclusion.",
+              "properties": {
+                "cpc_bid": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Max CPC for this group (Shopping manual CPC only)."
+                },
+                "excluded": {
+                  "default": false,
+                  "description": "Do not advertise.",
+                  "type": "boolean"
+                },
+                "value": {
+                  "description": "Brand, product type, custom label or item ID text; a numeric category ID; NEW/USED/REFURBISHED; or ONLINE/LOCAL.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "customer_id",
+          "ad_group_id",
+          "dimension",
+          "values"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_set_product_groups",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Set Product Groups"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Finds brands by name for brand lists (exclusions or restrictions).\n\nReturns each brand's `brand_id` (use it in manage_brand_list), name,\nwebsite URLs and state. Only brands Google recognizes can be added.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "brand_prefix": {
+            "description": "Start of the brand name, e.g. 'daik' for Daikin.",
+            "type": "string"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          }
+        },
+        "required": [
+          "customer_id",
+          "brand_prefix"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_suggest_brands",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Suggest Brands"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
       "description": "Changes account-wide tracking: auto-tagging, tracking template, suffix.\n\nAuto-tagging adds the gclid that GA4 and offline conversion imports need;\nget_account_overview flags accounts where it is off. The tracking\ntemplate and final URL suffix apply to every campaign without its own.\nPass only the settings to change; an empty string removes a template or\nsuffix. Campaign-level values are set with update_campaign_settings.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -6814,6 +8653,165 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
+      "description": "Changes an ad group's name, own target, ad rotation or tracking.\n\nAn ad group target CPA / ROAS overrides the campaign's target for that\nad group (smart bidding campaigns only). A looser target than the one\nthe ad group uses today is capped by the safety limit. Default bids are\nchanged with update_cpc_bid, status with update_entity_status.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "ad_group_id": {
+            "description": "Ad group ID.",
+            "type": "string"
+          },
+          "ad_rotation": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OPTIMIZE",
+                  "ROTATE_FOREVER"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "OPTIMIZE (best performing ads) or ROTATE_FOREVER."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "final_url_suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Ad group final URL suffix, '' removes it."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "New name."
+          },
+          "target_cpa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Ad group target CPA in the account currency."
+          },
+          "target_roas_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Ad group target ROAS, e.g. 400 for 400%."
+          },
+          "tracking_url_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Ad group tracking template, '' removes it."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "ad_group_id"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_update_ad_group_settings",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Update Ad Group Settings"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
       "description": "Sets bid modifiers on a campaign's devices, locations or ad schedules.\n\nA modifier of 1.2 means +20%, 0.8 means -20% and 0 excludes the device\nentirely. Automated strategies such as Maximize conversions ignore most\nmodifiers except a device exclusion (0).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -6916,6 +8914,155 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Campaign Management Update Bid Modifiers"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Turns Google's automation on or off for a Search or PMax campaign.\n\n- `ai_max` (Search): AI Max for Search, which matches more searches and\n  adapts ads; use brand lists (manage_brand_list) to keep it in check.\n- `final_url_expansion`: let Google send people to other pages of the\n  site than the final URL (PMax, and Search with AI Max).\n- `text_asset_automation`: let Google write extra headlines and\n  descriptions from the landing page (PMax, and Search with AI Max).\n- `add_url_exclusions`: pages that final URL expansion must never use,\n  as URL parts like '/vacatures' or '/blog' (excluded when the URL\n  contains them). Remove with `remove_url_exclusion_ids`\n  (campaign_criterion.criterion_id of type WEBPAGE).\nPass only what to change.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "add_url_exclusions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "URL parts to exclude from final URL expansion."
+          },
+          "ai_max": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Turn AI Max on (True) or off (False). Search only."
+          },
+          "campaign_id": {
+            "description": "Search or Performance Max campaign ID.",
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "final_url_expansion": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Allow (True) or block (False) other pages."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "remove_url_exclusion_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Criterion IDs of URL exclusions to remove."
+          },
+          "text_asset_automation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Allow (True) or block (False) generated text."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "campaign_id"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_update_campaign_automation",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Update Campaign Automation"
     },
     {
       "_meta": {
@@ -7969,6 +10116,189 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
+      "description": "Adjusts conversion values by location, device or audience.\n\nValue-based bidding then values conversions from, say, a high-margin\nregion or existing customers higher. CREATE: `action` (MULTIPLY by\n`value`, e.g. 1.5; ADD `value` in the account currency; or SET the\nvalue) and exactly one condition: `location_ids`, `devices` or\n`user_list_ids`. The rule joins the account's value rule set (created\nwhen missing). PAUSE / ENABLE / REMOVE: `rule_ids` (search on\nconversion_value_rule).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ADD",
+                  "MULTIPLY",
+                  "SET"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "MULTIPLY, ADD or SET (CREATE)."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "devices": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "MOBILE",
+                    "DESKTOP",
+                    "TABLET"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "MOBILE, DESKTOP and/or TABLET (condition)."
+          },
+          "location_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Geo target constant IDs (condition)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "operation": {
+            "default": "CREATE",
+            "description": "CREATE (default), PAUSE, ENABLE or REMOVE.",
+            "enum": [
+              "CREATE",
+              "PAUSE",
+              "ENABLE",
+              "REMOVE"
+            ],
+            "type": "string"
+          },
+          "rule_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Existing rule IDs (PAUSE, ENABLE, REMOVE)."
+          },
+          "user_list_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "User list IDs, e.g. Customer Match (condition)."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Factor (MULTIPLY, 0.1-10) or amount (ADD, SET). Increases\nare capped by the safety limit, like a target ROAS change."
+          }
+        },
+        "required": [
+          "customer_id"
+        ],
+        "type": "object"
+      },
+      "name": "conversions_manage_conversion_value_rules",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Conversions Manage Conversion Value Rules"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
       "description": "Chooses which conversion goals smart bidding optimizes towards.\n\nWithout `campaign_id` this changes the account default goals, which\napply to every campaign that uses account-level goals. With\n`campaign_id` it changes that campaign's goals only. A goal is a\ncategory + origin pair (e.g. SUBMIT_LEAD_FORM + WEBSITE); see\nget_conversion_setup for the existing goals.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -8251,6 +10581,164 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Conversions Update Conversion Action"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Retracts or restates conversions that were already reported.\n\nUse it when a lead turned out to be spam or a sale was refunded\n(RETRACTION), or the real value differs from the reported one\n(RESTATEMENT with the new total value). Find conversions by order_id\n(best) or gclid + original conversion_time. Works for website and\nuploaded conversions with order IDs, within 55 days.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "adjustments": {
+            "description": "1-200 adjustments.",
+            "items": {
+              "description": "One conversion to retract or restate, found by order ID or click.",
+              "properties": {
+                "adjustment_time": {
+                  "description": "When it changed, e.g. '2026-11-21 10:00:00+01:00'.",
+                  "type": "string"
+                },
+                "adjustment_type": {
+                  "description": "RETRACTION (cancel) or RESTATEMENT (new value).",
+                  "enum": [
+                    "RETRACTION",
+                    "RESTATEMENT"
+                  ],
+                  "type": "string"
+                },
+                "conversion_time": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Original conversion time (with gclid)."
+                },
+                "gclid": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Click ID (with conversion_time)."
+                },
+                "order_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Order / transaction ID of the conversion."
+                },
+                "restated_value": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "New total value (RESTATEMENT)."
+                }
+              },
+              "required": [
+                "adjustment_type",
+                "adjustment_time"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "conversion_action_id": {
+            "description": "The conversion action of these conversions.",
+            "type": "string"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "conversion_action_id",
+          "adjustments"
+        ],
+        "type": "object"
+      },
+      "name": "conversions_upload_conversion_adjustments",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Conversions Upload Conversion Adjustments"
     },
     {
       "_meta": {
