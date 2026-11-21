@@ -65,6 +65,12 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   `upload_customer_match` (customer lists for targeting, exclusion or
 >   PMax signals: emails, phones and names are normalized and SHA-256
 >   hashed on the server, EU consent is required and sent as GRANTED).
+> - **Custom segments and brand controls**: `manage_custom_segment` (people
+>   described by search terms, websites or apps, for targeting, Demand Gen
+>   and PMax signals), `suggest_brands` + `manage_brand_list` (brand
+>   exclusions on Search and PMax, brand restrictions for Search broad match
+>   and AI Max) and account-level negative keyword lists
+>   (`manage_shared_negative_list` with `account_level=True`).
 > - `remove_entities` (in `campaign_management`): permanent removal of
 >   campaigns, ad groups and asset groups (paused first) and ads or
 >   keywords, with 30-day spend and conversions in the proposal.

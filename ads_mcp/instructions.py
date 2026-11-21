@@ -41,7 +41,11 @@ How to work:
    the campaign_builder tools (Search, Performance Max, Demand Gen, Display,
    Shopping), which create everything PAUSED. Check account tracking first
    (auto-tagging, conversion goals). Enable only after the user reviewed it
-   (update_entity_status).
+   (update_entity_status). For audiences, research with suggest_audiences
+   or find_audience_segments and describe people with manage_custom_segment;
+   keep brand and non-brand traffic apart with brand lists (suggest_brands,
+   manage_brand_list) and account-wide negatives (manage_shared_negative_list
+   with account_level=True).
 4. Follow the account's existing naming pattern (see the campaign names in
    get_account_overview). Write ad texts in the language of the targeted
    audience (e.g. Belgian Dutch or French), concrete and without
