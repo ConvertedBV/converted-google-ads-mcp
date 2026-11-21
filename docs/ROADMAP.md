@@ -20,7 +20,7 @@ means built and tested, waiting for merge.
 | 8 | Account settings, portfolios, shared budgets, radius, lead forms (#12) | PR |
 | 9 | Guarded removal, undo, Customer Match (#12) | PR |
 | 10 | Custom segments, brand lists, account-level negative keywords | PR |
-| 11 | Client accounts under a manager, user invitations, Merchant Center link invitations | PR |
+| 11 | Client accounts under a manager, user invitations, answering Merchant Center link requests | PR |
 | 12 | Product groups (Shopping) and listing group filters (PMax), PMax and AI Max settings, URL exclusions | PR |
 | 13 | Ad group settings, frequency caps, ad customizers, conversion adjustments, conversion value rules | PR |
 | 14 | App campaigns | PR |
@@ -41,7 +41,8 @@ means built and tested, waiting for merge.
   form assets, images and videos, ad customizers.
 - **Targeting**: locations, radius, languages, schedules, devices, audiences
   (lists, interests, custom segments, Customer Match), demographics,
-  placements, topics, brand lists, URL exclusions, frequency caps.
+  placements, topics, brand lists, URL exclusions, frequency caps
+  (Display).
 - **Bidding and budgets**: all smart and manual strategies, portfolios,
   shared budgets, bid modifiers, data exclusions, seasonality adjustments.
 - **Measurement**: conversion actions and goals, offline conversions,
@@ -56,6 +57,11 @@ means built and tested, waiting for merge.
   in the Google Ads API. Demand Gen covers YouTube video ads.
 - **Smart campaigns**, **Local Services**, **Hotel/Travel** campaigns: not
   relevant for Converted's clients; can be added later.
+- **Merchant Center link requests** start in Merchant Center; the API can
+  only accept or reject them.
+- **Product groups deeper than the top level** (category or product type
+  level 2+) need the parent levels first; the tools build one level.
+- **Frequency caps on Demand Gen**: not supported by Google.
 - **Billing setup** and **payments accounts**, **terms of service**
   (Customer Match, lead forms), **GA4 links**: need a person in the Google
   Ads or GA4 interface.
