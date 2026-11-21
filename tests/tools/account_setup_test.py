@@ -203,6 +203,7 @@ class TestPortfolio(MutateToolTestCase):
             name="Leads BE",
             strategy="MAXIMIZE_CONVERSIONS",
             target_cpa=50,
+            allow_removing_targets=True,
         )
         ops = self.request("GoogleAdsService", "mutate").mutate_operations
         new = ops[0].bidding_strategy_operation.create
@@ -251,6 +252,7 @@ class TestPortfolio(MutateToolTestCase):
                         "bidding_strategy.name": "Brand IS",
                         "bidding_strategy.type_": self.enums.BiddingStrategyTypeEnum.TARGET_IMPRESSION_SHARE,
                         "bidding_strategy.campaign_count": 2,
+                        "bidding_strategy.target_impression_share.cpc_bid_ceiling_micros": 2_000_000,
                     }
                 )
             ],
@@ -540,6 +542,36 @@ class TestGuardBaselines(MutateToolTestCase):
                 strategy="MAXIMIZE_CONVERSIONS",
                 target_cpa=20,
             )
+
+    def test_manual_cpc_needs_max_cpc_limit(self):
+        manual = self.row(
+            {
+                "campaign.id": 333,
+                "campaign.bidding_strategy_type": self.enums.BiddingStrategyTypeEnum.MANUAL_CPC,
+                "customer.currency_code": "EUR",
+            }
+        )
+        self.search_results(
+            [self.row({"customer.currency_code": "EUR"})], [manual]
+        )
+        with self.assertRaisesRegex(ToolError, r"333 \(manual CPC bids\)"):
+            acs.manage_portfolio_bidding_strategy(
+                customer_id=CID,
+                campaign_ids=["333"],
+                name="Clicks",
+                strategy="MAXIMIZE_CLICKS",
+            )
+        self.search_results(
+            [self.row({"customer.currency_code": "EUR"})], [manual]
+        )
+        self.propose(
+            acs.manage_portfolio_bidding_strategy,
+            customer_id=CID,
+            campaign_ids=["333"],
+            name="Clicks",
+            strategy="MAXIMIZE_CLICKS",
+            max_cpc_limit=1.5,
+        )
 
     def test_impression_share_ceiling_is_baseline(self):
         self.search_results(

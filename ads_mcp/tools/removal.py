@@ -109,9 +109,7 @@ def remove_entities(
     cid = mh.require_customer_id(customer_id)
     kind = mh.enum_value(entity_type, RemovableType, "entity_type")
     config = _REMOVABLE[kind]
-    ids = mh.dedupe(
-        mh.require_ids(entity_ids, "entity_ids", composite=config.composite)
-    )
+    ids = mh.require_ids(entity_ids, "entity_ids", composite=config.composite)
     rns = [f"customers/{cid}/{config.prefix}/{i}" for i in ids]
     res = config.resource
 
@@ -338,7 +336,8 @@ def revert_change(
             f"Error: 'change_id' must look like {prefix}<id> (from "
             "get_change_history)."
         )
-    start = datetime.date.today() - datetime.timedelta(days=29)
+    today = datetime.date.today()
+    start = today - datetime.timedelta(days=29)
     ga_client = utils.get_googleads_client(login_customer_id=login_customer_id)
     rows = mh.search(
         ga_client,
@@ -351,6 +350,7 @@ def revert_change(
         "change_event.new_resource FROM change_event "
         f"WHERE change_event.resource_name = '{change}' "
         f"AND change_event.change_date_time >= '{start.isoformat()}' "
+        f"AND change_event.change_date_time <= '{today.isoformat()} 23:59:59' "
         "LIMIT 1",
     )
     if not rows:

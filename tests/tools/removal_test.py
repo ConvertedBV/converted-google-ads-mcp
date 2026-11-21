@@ -152,6 +152,12 @@ class TestRevertChange(MutateToolTestCase):
             "campaign_budget.amount_micros FROM campaign_budget",
             self.queries()[1],
         )
+        # change_event needs a finite date range.
+        self.assertRegex(
+            self.queries()[0],
+            r"change_date_time >= '[\d-]+' AND change_event.change_date_time"
+            r" <= '[\d-]+ 23:59:59'",
+        )
 
     def test_large_increase_capped(self):
         self.search_results(

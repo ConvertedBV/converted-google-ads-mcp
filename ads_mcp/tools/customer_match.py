@@ -24,6 +24,7 @@ import hashlib
 from typing import Any
 
 from fastmcp.exceptions import ToolError
+from google.ads.googleads.errors import GoogleAdsException
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
@@ -305,23 +306,49 @@ def upload_customer_match(
             )
 
     def _commit() -> str:
+        created_rn = None
         if list_op is not None:
             response = list_service.mutate_user_lists(
                 request=_list_request(False)
             )
-            target_rn = response.results[0].resource_name
+            target_rn = created_rn = response.results[0].resource_name
         else:
             target_rn = list_rn
-        job_rn = job_service.create_offline_user_data_job(
-            request=_job(target_rn, False)
-        ).resource_name
-        add = ga_client.get_type("AddOfflineUserDataJobOperationsRequest")
-        add.resource_name = job_rn
-        add.enable_partial_failure = True
-        add.operations.extend(_operations())
-        added = job_service.add_offline_user_data_job_operations(request=add)
-        failed = bool(added.partial_failure_error.code)
-        job_service.run_offline_user_data_job(resource_name=job_rn)
+        job_rn = None
+        try:
+            job_rn = job_service.create_offline_user_data_job(
+                request=_job(target_rn, False)
+            ).resource_name
+            add = ga_client.get_type("AddOfflineUserDataJobOperationsRequest")
+            add.resource_name = job_rn
+            add.enable_partial_failure = True
+            add.operations.extend(_operations())
+            added = job_service.add_offline_user_data_job_operations(
+                request=add
+            )
+            failed = bool(added.partial_failure_error.code)
+            job_service.run_offline_user_data_job(resource_name=job_rn)
+        except Exception as exc:
+            if created_rn is None and job_rn is None:
+                raise
+            # Say what already exists so a retry does not duplicate it.
+            detail = (
+                utils.format_google_ads_error(exc)
+                if isinstance(exc, GoogleAdsException)
+                else str(exc)
+            )
+            notes = ["Error: Uploading the members failed."]
+            if job_rn:
+                notes.append(
+                    f"Job {utils.extract_id(job_rn)} was created but not run."
+                )
+            if created_rn:
+                notes.append(
+                    f"List {created_rn} was created; do not create it again "
+                    "but retry with "
+                    f"user_list_id={utils.extract_id(created_rn)}."
+                )
+            raise ToolError(" ".join(notes) + "\n" + detail) from exc
         return (
             f"Sent {len(rows)} members to "
             f"{target_rn} (job {utils.extract_id(job_rn)}, running). "

@@ -246,6 +246,9 @@ def _current_limits(
     )
 
 
+_MANUAL_STRATEGIES = ("MANUAL_CPC", "ENHANCED_CPC", "MANUAL_CPM", "MANUAL_CPV")
+
+
 def _guard_targets(
     rows: dict[str, Any],
     portfolios: dict[str, tuple],
@@ -290,6 +293,15 @@ def _guard_targets(
                 )
             else:
                 dropped.append(f"{label} (max CPC limit)")
+        manual = (
+            not row.campaign.bidding_strategy
+            and mh.enum_name(row.campaign.bidding_strategy_type)
+            in _MANUAL_STRATEGIES
+        )
+        if manual and not ceiling:
+            # Manual bids cap every click; a portfolio without a max CPC
+            # limit lets Google bid above them.
+            dropped.append(f"{label} (manual CPC bids)")
     if dropped and not allow_removing_targets:
         raise ToolError(
             "Error: Moving these campaigns would drop their current limit: "

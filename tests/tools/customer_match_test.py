@@ -106,6 +106,25 @@ class TestCustomerMatch(MutateToolTestCase):
             resource_name=job_rn
         )
 
+    def test_failed_upload_names_created_list(self):
+        proposal = self.propose(cm.upload_customer_match, **self._kwargs())
+        users = self.service("UserListService")
+        users.mutate_user_lists.return_value = MagicMock(
+            results=[MagicMock(resource_name=f"customers/{CID}/userLists/9")]
+        )
+        jobs = self.service("OfflineUserDataJobService")
+        jobs.create_offline_user_data_job.return_value = MagicMock(
+            resource_name=f"customers/{CID}/offlineUserDataJobs/77"
+        )
+        jobs.add_offline_user_data_job_operations.side_effect = RuntimeError(
+            "quota"
+        )
+        with self.assertRaisesRegex(
+            ToolError, "Job 77 was created but not run.*user_list_id=9"
+        ):
+            self.commit(cm.upload_customer_match, proposal, **self._kwargs())
+        jobs.run_offline_user_data_job.assert_not_called()
+
     def test_existing_list_remove(self):
         self.search_results(
             [
