@@ -23,3 +23,10 @@ namespaces:
   experiments: true
   # Converted: account overview with flags (read-only).
   account: true
+  # Converted: Google Analytics 4 (Data + Admin API). Only mounted when the
+  # environment variable GOOGLE_ADS_MCP_ANALYTICS is 'read' (the first three)
+  # or 'full' (all four); off by default.
+  analytics_reporting: true
+  analytics_insights: true
+  analytics_admin: true
+  analytics_management: true

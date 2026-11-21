@@ -41,6 +41,11 @@ ALL_CATEGORIES = [
     "audiences",
     "experiments",
     "account",
+    # Google Analytics 4; mounted only when GOOGLE_ADS_MCP_ANALYTICS is set.
+    "analytics_reporting",
+    "analytics_insights",
+    "analytics_admin",
+    "analytics_management",
 ]
 
 # When truthy, every tool that is not annotated readOnlyHint=True is removed

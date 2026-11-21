@@ -64,3 +64,34 @@ How to work:
 7. Distinguish facts from the API from your own assumptions and advice, and
    report tool errors exactly instead of guessing what happened.
 """
+
+ANALYTICS_INSTRUCTIONS = """\
+
+Google Analytics 4 (tools starting with analytics_):
+8. Find the property with analytics_reporting_list_properties. Start an
+   analysis with analytics_insights_property_overview or
+   analytics_insights_channel_performance (channels x months with key
+   events, purchases and revenue); check data quality with
+   analytics_insights_tracking_health before drawing conclusions.
+9. For anything else use analytics_reporting_run_report; look up exact
+   dimension and metric names with analytics_reporting_get_metadata (key
+   events per event: 'keyEvents:<event_name>').
+10. GA4 attributes to the last non-direct click per session; Google Ads
+   credits its own clicks. Never add GA4 and Google Ads conversions or
+   revenue together, and say which source a number comes from.
+11. GA4 settings change only through analytics_management tools with the
+   same propose and confirm flow (validate_only=True, user approval, then
+   validate_only=False with the checksum). Read the current state first
+   (analytics_admin_get_property_setup / get_resource). Prefer archiving
+   over deleting; never change user access or delete streams without an
+   explicit request.
+"""
+
+
+def server_instructions() -> str:
+    """Instructions for this deployment (adds GA4 when it is enabled)."""
+    from ads_mcp.analytics.client import analytics_mode
+
+    if analytics_mode() == "off":
+        return SERVER_INSTRUCTIONS
+    return SERVER_INSTRUCTIONS + ANALYTICS_INSTRUCTIONS
