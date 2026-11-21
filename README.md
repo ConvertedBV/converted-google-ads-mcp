@@ -71,6 +71,28 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   exclusions on Search and PMax, brand restrictions for Search broad match
 >   and AI Max) and account-level negative keyword lists
 >   (`manage_shared_negative_list` with `account_level=True`).
+> - **Account administration** (`account` namespace): `create_client_account`
+>   (new advertiser account under a manager; currency and time zone are
+>   fixed afterwards), `invite_user` (access by email) and
+>   `manage_merchant_center_link` (request, accept or reject Merchant Center
+>   links). Billing and terms stay in the Google Ads interface.
+> - **Product groups**: `set_product_groups` (Shopping: one level by brand,
+>   category, product type, custom label, item ID, condition or channel,
+>   with bids or exclusions) and `set_listing_group_filters` (retail PMax).
+> - **Automation and delivery**: `update_campaign_automation` (AI Max for
+>   Search, final URL expansion, text automation, URL exclusions) and
+>   `set_frequency_caps` (Display, Demand Gen).
+> - **Fine-tuning**: `update_ad_group_settings` (name, ad group target
+>   CPA/ROAS within the safety limit, ad rotation, tracking) and
+>   `manage_ad_customizer` (values for {CUSTOMIZER.name:default} in RSAs at
+>   account, campaign or ad group level).
+> - **Measurement**: `upload_conversion_adjustments` (retract or restate
+>   reported conversions) and `manage_conversion_value_rules` (value by
+>   location, device or audience).
+> - `create_app_campaign` (in `campaign_builder`): App campaigns for
+>   installs or in-app actions.
+> - The full plan and what the API does not allow:
+>   [docs/ROADMAP.md](docs/ROADMAP.md).
 > - `remove_entities` (in `campaign_management`): permanent removal of
 >   campaigns, ad groups and asset groups (paused first) and ads or
 >   keywords, with 30-day spend and conversions in the proposal.
