@@ -22,7 +22,7 @@ of the server.
 import os
 from typing import Any
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.google import GoogleProvider
+from ads_mcp.auth_provider import ConvertedGoogleProvider
 from fastmcp_tasks import TasksExtension
 from mcp import types as mcp_types
 from mcp.server.subscriptions import InMemorySubscriptionBus, ListenHandler
@@ -52,17 +52,18 @@ if _CLIENT_ID and _CLIENT_SECRET:
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile",
             "https://www.googleapis.com/auth/adwords",
-            # Google Analytics 4 scopes, only when GOOGLE_ADS_MCP_ANALYTICS
-            # is 'read' or 'full' (see ads_mcp/analytics/client.py).
-            *analytics_scopes(),
         ],
+        # Google Analytics 4 scopes (only when GOOGLE_ADS_MCP_ANALYTICS is
+        # 'read' or 'full'): requested at login, not required on the token,
+        # so Ads keeps working for sessions without them.
+        "optional_scopes": analytics_scopes(),
     }
     if _JWT_SIGNING_KEY:
         provider_kwargs["jwt_signing_key"] = _JWT_SIGNING_KEY
     if client_storage is not None:
         provider_kwargs["client_storage"] = client_storage
 
-    auth = GoogleProvider(**provider_kwargs)
+    auth = ConvertedGoogleProvider(**provider_kwargs)
     mcp = FastMCP(
         "Google Ads Server", instructions=server_instructions(), auth=auth
     )

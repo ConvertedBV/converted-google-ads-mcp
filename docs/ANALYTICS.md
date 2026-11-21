@@ -11,9 +11,17 @@ Google login as Google Ads. The GA4 tools are off by default.
 | `read` | `analytics_reporting_*`, `analytics_insights_*`, `analytics_admin_*` | `analytics.readonly` |
 | `full` | all of the above + `analytics_management_*` | `analytics.readonly`, `analytics.edit`, `analytics.manage.users` |
 
-The scopes are added to the Google login of the server. After switching the
-mode on (or from `read` to `full`), every user reconnects the MCP server once
-in their client so Google asks for the new permissions.
+The scopes are *requested* at every Google login but not *required* on the
+token: existing sessions keep working for Google Ads, and a user who unticks
+Google Analytics on Google's consent screen (or a pending Google verification
+of the sensitive Analytics scopes) never blocks the Ads tools. To use the GA4
+tools, a user reconnects the MCP server once in their client and allows Google
+Analytics; until then the GA4 tools answer with a "reconnect" message.
+
+Sensitive scopes and Google verification: on an *Internal* consent screen no
+verification is needed. On an *External* app in production, Google shows the
+"unverified app" warning for these scopes until verification is approved; the
+login still works (up to 100 users).
 
 Optional: `GOOGLE_ADS_MCP_ANALYTICS_PROPERTY_IDS=123,456` limits the tools to
 those properties.

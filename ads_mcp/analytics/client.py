@@ -234,6 +234,17 @@ def format_api_error(exc: Exception) -> str:
     """Readable message for Google API errors (Admin and Data API)."""
     from google.api_core import exceptions as gexc
 
+    text = str(exc)
+    if isinstance(exc, (gexc.PermissionDenied, gexc.Unauthenticated)) and (
+        "SCOPE_INSUFFICIENT" in text
+        or "insufficient authentication scopes" in text
+    ):
+        return (
+            "This session has no Google Analytics access yet (the login did "
+            "not include the Analytics scopes). Ask the user to disconnect and "
+            "reconnect the connector in Claude and to allow Google Analytics "
+            "on Google's consent screen."
+        )
     if isinstance(exc, gexc.PermissionDenied):
         return (
             f"Permission denied by Google Analytics: {exc.message}. Check that "
