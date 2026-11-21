@@ -59,6 +59,22 @@ def enum_value(value: Any, enum_cls: type[Enum], arg_name: str) -> str:
     return raw
 
 
+def enum_name(value: Any, enum_cls: Any = None) -> str:
+    """Returns an enum value's name, also when proto-plus returns a bare int.
+
+    proto-plus sometimes returns enum fields of nested messages as ints, so
+    `.name` cannot be relied on for every field of an API response.
+    """
+    if hasattr(value, "name"):
+        return value.name
+    if enum_cls is not None:
+        try:
+            return enum_cls(value).name
+        except (ValueError, TypeError):
+            pass
+    return str(value)
+
+
 def require_customer_id(customer_id: str | int) -> str:
     cleaned = utils.clean_customer_id(customer_id)
     if not cleaned:

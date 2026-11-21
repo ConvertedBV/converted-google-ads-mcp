@@ -19,6 +19,7 @@ GoogleAdsService.Mutate request (budget, campaign, targeting, assets,
 asset groups or ad groups and ads): everything is created or nothing.
 """
 
+import re
 from typing import Any
 
 from fastmcp.exceptions import ToolError
@@ -118,6 +119,25 @@ class DemandGenAdInput(BaseModel):
     )
 
 
+class DemandGenVideoAdInput(BaseModel):
+    """A Demand Gen video ad (YouTube, Shorts, Discover, Gmail)."""
+
+    name: str = Field(description="Ad name.")
+    final_url: str = Field(description="Landing page URL.")
+    youtube_video_ids: list[str] = Field(
+        description="1-5 YouTube video IDs (the 11-character ID)."
+    )
+    headlines: list[str] = Field(description="1-5 headlines, max 40 chars.")
+    long_headlines: list[str] = Field(
+        description="1-5 long headlines, max 90 chars."
+    )
+    descriptions: list[str] = Field(description="1-5 descriptions, max 90.")
+    business_name: str = Field(description="Business name, max 25 chars.")
+    logo_images: list[str] = Field(
+        description="Square 1:1 logos: asset IDs or https URLs (1-5)."
+    )
+
+
 class DemandGenAdGroupInput(BaseModel):
     """A Demand Gen ad group with its own targeting and ads."""
 
@@ -135,7 +155,13 @@ class DemandGenAdGroupInput(BaseModel):
             "finds the audience."
         ),
     )
-    ads: list[DemandGenAdInput] = Field(description="1-5 multi-asset ads.")
+    ads: list[DemandGenAdInput] = Field(
+        default_factory=list, description="Multi-asset image ads."
+    )
+    video_ads: list["DemandGenVideoAdInput"] = Field(
+        default_factory=list,
+        description="YouTube video ads; 1-5 ads in total per ad group.",
+    )
 
 
 class ImageInput(BaseModel):
@@ -924,13 +950,47 @@ def _normalize_dg_ad(ad: DemandGenAdInput | dict) -> dict[str, Any]:
     }
 
 
+def _normalize_dg_video_ad(ad: "DemandGenVideoAdInput | dict") -> dict:
+    if isinstance(ad, dict):
+        ad = DemandGenVideoAdInput(**ad)
+    name = " ".join(ad.name.split())
+    if not name:
+        raise ToolError("Error: Every Demand Gen ad needs a 'name'.")
+    videos = mh.dedupe([v.strip() for v in ad.youtube_video_ids if v.strip()])
+    if not 1 <= len(videos) <= 5:
+        raise ToolError(f"Error: Video ad '{name}' needs 1-5 YouTube videos.")
+    if any(not re.fullmatch(r"[A-Za-z0-9_-]{11}", v) for v in videos):
+        raise ToolError("Error: YouTube video IDs have 11 characters.")
+    logos = _refs(ad.logo_images, "logo_images", 1)
+    if len(logos) > 5:
+        raise ToolError("Error: At most 5 logos per ad.")
+    return {
+        "name": name,
+        "final_url": mh.require_url(ad.final_url, "final_url"),
+        "youtube_video_ids": videos,
+        "headlines": ab.normalize_plain_texts(
+            ad.headlines, "headline", 1, 5, 40
+        ),
+        "long_headlines": ab.normalize_plain_texts(
+            ad.long_headlines, "long headline", 1, 5, 90
+        ),
+        "descriptions": ab.normalize_plain_texts(
+            ad.descriptions, "description", 1, 5, 90
+        ),
+        "business_name": ab.normalize_plain_texts(
+            [ad.business_name], "business name", 1, 1, 25
+        )[0],
+        "logo_images": logos,
+    }
+
+
 def _normalize_dg_group(group: DemandGenAdGroupInput | dict) -> dict[str, Any]:
     if isinstance(group, dict):
         group = DemandGenAdGroupInput(**group)
     name = " ".join(group.name.split())
     if not name:
         raise ToolError("Error: Every ad group needs a 'name'.")
-    if not 1 <= len(group.ads) <= 5:
+    if not 1 <= len(group.ads) + len(group.video_ads) <= 5:
         raise ToolError(f"Error: Ad group '{name}' needs 1-5 ads.")
     return {
         "name": name,
@@ -946,6 +1006,7 @@ def _normalize_dg_group(group: DemandGenAdGroupInput | dict) -> dict[str, Any]:
             else None
         ),
         "ads": [_normalize_dg_ad(ad) for ad in group.ads],
+        "video_ads": [_normalize_dg_video_ad(ad) for ad in group.video_ads],
     }
 
 
@@ -1168,6 +1229,48 @@ def create_demand_gen_campaign(
                 )
             )
 
+        for ad in group["video_ads"]:
+            ad_op = ga_client.get_type("MutateOperation")
+            ad_group_ad = ad_op.ad_group_ad_operation.create
+            ad_group_ad.ad_group = group_rn
+            ad_group_ad.status = enums.AdGroupAdStatusEnum.ENABLED
+            ad_message = ad_group_ad.ad
+            ad_message.name = ad["name"]
+            ad_message.final_urls.append(ad["final_url"])
+            info = ad_message.demand_gen_video_responsive_ad
+            for field in ("headlines", "long_headlines", "descriptions"):
+                for text in ad[field]:
+                    text_asset = ga_client.get_type("AdTextAsset")
+                    text_asset.text = text
+                    getattr(info, field).append(text_asset)
+            info.business_name.text = ad["business_name"]
+            for video_id in ad["youtube_video_ids"]:
+                video = ga_client.get_type("AdVideoAsset")
+                video.asset = pool.youtube(video_id)
+                info.videos.append(video)
+            for index, ref in enumerate(ad["logo_images"], start=1):
+                logo = ga_client.get_type("AdImageAsset")
+                logo.asset = pool.image(
+                    ref, "LOGO", f"{ad['name']} logo {index}"
+                )
+                info.logo_images.append(logo)
+            group_ops.append(ad_op)
+            change_items.extend(
+                pac.build_change_items(
+                    operation="CREATE",
+                    entity_readable="Demand Gen Video Ad",
+                    primary_key_readable=f"{group['name']} > {ad['name']}",
+                    fields={
+                        "Final URL": ad["final_url"],
+                        "YouTube videos": ", ".join(ad["youtube_video_ids"]),
+                        "Headlines": " | ".join(ad["headlines"]),
+                        "Long headlines": " | ".join(ad["long_headlines"]),
+                        "Descriptions": " | ".join(ad["descriptions"]),
+                        "Business name": ad["business_name"],
+                    },
+                )
+            )
+
     return mh.run_google_ads_mutation(
         ga_client=ga_client,
         customer_id=cid,
@@ -1189,3 +1292,6 @@ def create_demand_gen_campaign(
         ),
         error_prefix="Failed to create Demand Gen campaign",
     )
+
+
+DemandGenAdGroupInput.model_rebuild()

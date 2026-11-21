@@ -228,7 +228,8 @@ def get_change_history(
     Covers changes made in the Google Ads UI, through the API (including this
     server) and by Google (e.g. auto-applied recommendations). Google keeps
     the change history for 30 days. Use it to answer "what changed before the
-    drop?" or to check that a change went through.
+    drop?" or to check that a change went through. Pass a change_id
+    to revert_change to undo an update.
 
     Args:
         customer_id: Google Ads Customer ID (digits or hyphenated).
@@ -255,7 +256,8 @@ def get_change_history(
     rows = mh.search(
         ga_client,
         cid,
-        "SELECT change_event.change_date_time, "
+        "SELECT change_event.resource_name, "
+        "change_event.change_date_time, "
         "change_event.change_resource_type, "
         "change_event.change_resource_name, change_event.client_type, "
         "change_event.user_email, change_event.resource_change_operation, "
@@ -270,6 +272,7 @@ def get_change_history(
         event = row.change_event
         changes.append(
             {
+                "change_id": event.resource_name,
                 "time": event.change_date_time,
                 "operation": event.resource_change_operation.name,
                 "resource_type": event.change_resource_type.name,

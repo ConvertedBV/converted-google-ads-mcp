@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Call, promotion and price assets (extensions), created and linked at once.
+"""Call, promotion, price and lead form assets, created and linked at once.
 
 Registered on the ``campaign_management`` namespace. Sitelinks, callouts and
 structured snippets are created with the assets tools and linked with
@@ -42,6 +42,7 @@ class ExtensionType(str, Enum):
     CALL = "CALL"
     PROMOTION = "PROMOTION"
     PRICE = "PRICE"
+    LEAD_FORM = "LEAD_FORM"
 
 
 class LinkLevel(str, Enum):
@@ -105,6 +106,44 @@ class PriceInput(BaseModel):
     offerings: list[PriceOfferingInput] = Field(description="3-8 offerings.")
 
 
+class LeadFormInput(BaseModel):
+    """A lead form shown under the ad; leads land in Google Ads."""
+
+    business_name: str = Field(description="Business name, max 25 chars.")
+    headline: str = Field(description="Form headline, max 30 chars.")
+    description: str = Field(description="Form description, max 200 chars.")
+    privacy_policy_url: str = Field(description="Privacy policy URL.")
+    final_url: str = Field(description="Website URL of the advertiser.")
+    call_to_action_type: str = Field(
+        default="GET_QUOTE",
+        description="LEARN_MORE, GET_QUOTE, APPLY_NOW, SIGN_UP, CONTACT_US, "
+        "SUBSCRIBE, DOWNLOAD, BOOK_NOW, GET_OFFER, REGISTER, GET_INFO, "
+        "REQUEST_DEMO, JOIN_NOW or GET_STARTED.",
+    )
+    call_to_action_description: str = Field(
+        description="Text next to the button in the ad, max 30 chars."
+    )
+    fields: list[str] = Field(
+        default_factory=lambda: ["FULL_NAME", "EMAIL", "PHONE_NUMBER"],
+        description="Questions, e.g. FULL_NAME, EMAIL, PHONE_NUMBER, "
+        "POSTAL_CODE, CITY, COMPANY_NAME, WORK_EMAIL, JOB_TITLE.",
+    )
+    post_submit_headline: str | None = Field(
+        default=None, description="Thank-you headline, max 30 chars."
+    )
+    post_submit_description: str | None = Field(
+        default=None, description="Thank-you text, max 200 chars."
+    )
+    post_submit_call_to_action_type: str | None = Field(
+        default=None,
+        description="VISIT_SITE, DOWNLOAD, LEARN_MORE or SHOP_NOW.",
+    )
+    high_intent: bool = Field(
+        default=True,
+        description="True: fewer but more qualified leads (HIGH_INTENT).",
+    )
+
+
 def _short(text: str, label: str, max_chars: int) -> str:
     return ab.normalize_plain_texts([text], label, 1, 1, max_chars)[0]
 
@@ -130,25 +169,30 @@ def create_extension_asset(
     call: CallInput | None = None,
     promotion: PromotionInput | None = None,
     price: PriceInput | None = None,
+    lead_form: LeadFormInput | None = None,
     login_customer_id: str | int | None = None,
     validate_only: bool = True,
     checksum: str | None = None,
 ) -> str:
-    """Creates a call, promotion or price asset and links it in one step.
+    """Creates a call, promotion, price or lead form asset and links it.
 
-    Pass the matching input (`call`, `promotion` or `price`) and where to
-    link it: CUSTOMER (whole account), CAMPAIGN or AD_GROUP with
-    `parent_id`, or NONE to only create it (link later with link_assets).
+    Pass the matching input (`call`, `promotion`, `price` or `lead_form`)
+    and where to link it: CUSTOMER (whole account), CAMPAIGN or AD_GROUP
+    with `parent_id`, or NONE to only create it (link later with
+    link_assets). Lead forms link to a campaign only; the account must
+    have accepted the lead form terms in Google Ads, and leads are
+    downloaded there (or sent to a CRM webhook set up in Google Ads).
     {workflow}
     Args:
         customer_id: Google Ads Customer ID (digits or hyphenated).
-        extension_type: CALL, PROMOTION or PRICE.
+        extension_type: CALL, PROMOTION, PRICE or LEAD_FORM.
         link_level: CAMPAIGN (default), AD_GROUP, CUSTOMER or NONE.
         parent_id: Campaign or ad group ID for CAMPAIGN / AD_GROUP.
         call: {{"phone_number", "country_code"}} for CALL.
         promotion: Promotion details for PROMOTION (percent_off or
             money_amount_off).
         price: Price details with 3-8 offerings for PRICE.
+        lead_form: Form details for LEAD_FORM.
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
         validate_only: True (default) proposes; False commits (needs checksum).
@@ -162,12 +206,22 @@ def create_extension_asset(
         if level in ("CAMPAIGN", "AD_GROUP")
         else None
     )
-    inputs = {"CALL": call, "PROMOTION": promotion, "PRICE": price}
+    inputs = {
+        "CALL": call,
+        "PROMOTION": promotion,
+        "PRICE": price,
+        "LEAD_FORM": lead_form,
+    }
     if inputs[kind] is None or any(
         v is not None for k, v in inputs.items() if k != kind
     ):
         raise ToolError(
             f"Error: Pass only '{kind.lower()}' for a {kind} extension."
+        )
+    if kind == "LEAD_FORM" and level not in ("CAMPAIGN", "NONE"):
+        raise ToolError(
+            "Error: Lead forms link to a campaign (or NONE), not to the "
+            "account or an ad group."
         )
 
     ga_client = utils.get_googleads_client(login_customer_id=login_customer_id)
@@ -277,6 +331,94 @@ def create_extension_asset(
             ),
             "Final URL": url,
         }
+    elif kind == "LEAD_FORM":
+        data = (
+            LeadFormInput(**lead_form)
+            if isinstance(lead_form, dict)
+            else lead_form
+        )
+        info = asset.lead_form_asset
+        cta = _enum_name(
+            enums.LeadFormCallToActionTypeEnum,
+            data.call_to_action_type,
+            "call_to_action_type",
+        )
+        questions = []
+        for field in mh.dedupe([f.strip().upper() for f in data.fields]):
+            questions.append(
+                _enum_name(enums.LeadFormFieldUserInputTypeEnum, field, "field")
+            )
+        if not 1 <= len(questions) <= 15:
+            raise ToolError("Error: A lead form needs 1-15 fields.")
+        if not {"EMAIL", "PHONE_NUMBER", "WORK_EMAIL", "WORK_PHONE"} & set(
+            questions
+        ):
+            raise ToolError(
+                "Error: Ask for an email address or phone number so the "
+                "lead can be contacted."
+            )
+        info.business_name = _short(data.business_name, "business name", 25)
+        info.headline = _short(data.headline, "lead form headline", 30)
+        info.description = _short(
+            data.description, "lead form description", 200
+        )
+        info.call_to_action_type = getattr(
+            enums.LeadFormCallToActionTypeEnum, cta
+        )
+        info.call_to_action_description = _short(
+            data.call_to_action_description, "call to action description", 30
+        )
+        info.privacy_policy_url = mh.require_url(
+            data.privacy_policy_url, "privacy_policy_url"
+        )
+        url = mh.require_url(data.final_url, "final_url")
+        asset.final_urls.append(url)
+        for question in questions:
+            item = ga_client.get_type("LeadFormField")
+            item.input_type = getattr(
+                enums.LeadFormFieldUserInputTypeEnum, question
+            )
+            info.fields.append(item)
+        if data.post_submit_headline:
+            info.post_submit_headline = _short(
+                data.post_submit_headline, "post-submit headline", 30
+            )
+        if data.post_submit_description:
+            info.post_submit_description = _short(
+                data.post_submit_description, "post-submit description", 200
+            )
+        post_cta = _enum_name(
+            enums.LeadFormPostSubmitCallToActionTypeEnum,
+            data.post_submit_call_to_action_type,
+            "post_submit_call_to_action_type",
+        )
+        if post_cta:
+            info.post_submit_call_to_action_type = getattr(
+                enums.LeadFormPostSubmitCallToActionTypeEnum, post_cta
+            )
+        intent = "HIGH_INTENT" if data.high_intent else "LOW_INTENT"
+        info.desired_intent = getattr(enums.LeadFormDesiredIntentEnum, intent)
+        normalized = {
+            "business_name": info.business_name,
+            "headline": info.headline,
+            "description": info.description,
+            "cta": cta,
+            "cta_description": info.call_to_action_description,
+            "privacy": info.privacy_policy_url,
+            "url": url,
+            "fields": questions,
+            "post_headline": data.post_submit_headline,
+            "post_description": data.post_submit_description,
+            "post_cta": post_cta,
+            "intent": intent,
+        }
+        fields = {
+            "Headline": info.headline,
+            "Button": f"{cta}: {info.call_to_action_description}",
+            "Questions": ", ".join(questions),
+            "Intent": intent,
+            "Privacy policy": info.privacy_policy_url,
+        }
     else:
         data = PriceInput(**price) if isinstance(price, dict) else price
         price_type = _enum_name(enums.PriceExtensionTypeEnum, data.type, "type")
@@ -365,8 +507,8 @@ def create_extension_asset(
 
     change_items = pac.build_change_items(
         operation="CREATE",
-        entity_readable=f"{kind.title()} extension",
-        primary_key_readable=kind.title(),
+        entity_readable=f"{kind.replace('_', ' ').title()} extension",
+        primary_key_readable=kind.replace("_", " ").title(),
         fields=fields,
     )
     return mh.run_google_ads_mutation(

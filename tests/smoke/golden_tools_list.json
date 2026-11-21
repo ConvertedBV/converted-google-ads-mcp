@@ -164,7 +164,7 @@
       "annotations": {
         "readOnlyHint": true
       },
-      "description": "Lists recent changes in the account: what changed, when and by whom.\n\nCovers changes made in the Google Ads UI, through the API (including this\nserver) and by Google (e.g. auto-applied recommendations). Google keeps\nthe change history for 30 days. Use it to answer \"what changed before the\ndrop?\" or to check that a change went through.",
+      "description": "Lists recent changes in the account: what changed, when and by whom.\n\nCovers changes made in the Google Ads UI, through the API (including this\nserver) and by Google (e.g. auto-applied recommendations). Google keeps\nthe change history for 30 days. Use it to answer \"what changed before the\ndrop?\" or to check that a change went through. Pass a change_id\nto revert_change to undo an update.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -687,6 +687,101 @@
         }
       },
       "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Describes who is in an audience: other interests, demographics, and\nthe YouTube channels they watch.\n\nPass the user_interest_ids that define the audience (from\nfind_audience_segments or suggest_audiences). Each attribute comes with\nits share of the audience and an index versus the country baseline\n(index > 1 means over-represented), which helps choose extra signals,\nexclusions, ad texts and visuals.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name of the advertiser being planned for."
+          },
+          "country_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Country geo target IDs (default [\"2056\"], Belgium)."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "user_interest_ids": {
+            "description": "1-10 user interest IDs defining the audience.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "customer_id",
+          "user_interest_ids"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_analyze_audience_composition",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Analyze Audience Composition"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
         "destructiveHint": false,
         "readOnlyHint": false
       },
@@ -802,6 +897,108 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Audiences Create Remarketing List"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Finds Google audience segments by keyword.\n\nSearches affinity, in-market and life-event segments (e.g. \"air\nconditioning\", \"home improvement\", \"moving\") and returns their\nuser_interest_id, usable in manage_audience_targeting\n(user_interest_ids) and as Performance Max audience signals.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name of the advertiser being planned for."
+          },
+          "country_id": {
+            "default": "2056",
+            "description": "Country geo target ID (default 2056, Belgium).",
+            "type": "string"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "query": {
+            "description": "Search text in English or the target language.",
+            "type": "string"
+          },
+          "segment_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "AFFINITY_USER_INTEREST",
+                    "IN_MARKET_USER_INTEREST",
+                    "LIFE_EVENT_USER_INTEREST"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "AFFINITY, IN_MARKET and/or LIFE_EVENT (default all)."
+          }
+        },
+        "required": [
+          "customer_id",
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_find_audience_segments",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Find Audience Segments"
     },
     {
       "_meta": {
@@ -1108,6 +1305,320 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Audiences Manage Demographic Exclusions"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Suggests target audiences from a plain-language description.\n\nDescribe the ideal customer, e.g. \"families in Flanders considering an\nair conditioner for their home\". Returns suggested audiences with their\ninterests (with user_interest_id for targeting or PMax signals), age\nranges, gender, parental status, coverage, index and potential YouTube\nreach. Uses Google's Audience Insights.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name of the advertiser being planned for."
+          },
+          "country_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Country geo target IDs (default [\"2056\"], Belgium)."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "description": {
+            "description": "Plain-language description of the audience.",
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "objective": {
+            "default": "CONSIDERATION",
+            "description": "AWARENESS, CONSIDERATION (default) or RESEARCH.",
+            "enum": [
+              "AWARENESS",
+              "CONSIDERATION",
+              "RESEARCH"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_id",
+          "description"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_suggest_audiences",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Suggest Audiences"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Uploads customers to a Customer Match list (new or existing).\n\nUse it to target or exclude existing customers and leads, or as an\naudience signal for Performance Max. Emails, phone numbers and names are\nnormalized and SHA-256 hashed on this server; only hashes go to Google.\nIn the EU the customers must have consented to ad use of their data:\npass `consent_confirmed=True` only when the user confirms that. The\naccount must accept the Customer Match terms and meet Google's policy\nrequirements; the dry run shows if it does not. Matching takes 6-48\nhours; follow it with the search tool on offline_user_data_job and\nuser_list (size_for_search, match_rate_percentage). Lists need about\n1,000 matched members before they can serve.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "consent_confirmed": {
+            "description": "The user confirms these people consented to ad\nuse of their data (required; sent to Google as GRANTED).",
+            "type": "boolean"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional description of a new list."
+          },
+          "list_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name for a new Customer Match list (instead of the ID)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "members": {
+            "description": "Up to 10,000 people, each with email, phone_number and/or\nfirst_name + last_name + country_code + postal_code.",
+            "items": {
+              "description": "One person; give an email, a phone number and/or name + address.",
+              "properties": {
+                "country_code": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "ISO country code, e.g. BE (with address)."
+                },
+                "email": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Email address."
+                },
+                "first_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "First name."
+                },
+                "last_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Last name."
+                },
+                "phone_number": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Phone in E.164 format, e.g. +32470123456."
+                },
+                "postal_code": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Postal code (with name and country)."
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "membership_days": {
+            "default": 540,
+            "description": "How long members stay in a new list, 1-540\n(default 540), or 10000 for no expiry.",
+            "type": "integer"
+          },
+          "remove_members": {
+            "default": false,
+            "description": "True removes these people from the list.",
+            "type": "boolean"
+          },
+          "user_list_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Existing Customer Match list to add to or remove from."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "members",
+          "consent_confirmed"
+        ],
+        "type": "object"
+      },
+      "name": "audiences_upload_customer_match",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Audiences Upload Customer Match"
     },
     {
       "_meta": {
@@ -1591,7 +2102,7 @@
               "description": "A Demand Gen ad group with its own targeting and ads.",
               "properties": {
                 "ads": {
-                  "description": "1-5 multi-asset ads.",
+                  "description": "Multi-asset image ads.",
                   "items": {
                     "description": "A Demand Gen multi-asset (image) ad.",
                     "properties": {
@@ -1703,12 +2214,78 @@
                 "name": {
                   "description": "Ad group name.",
                   "type": "string"
+                },
+                "video_ads": {
+                  "description": "YouTube video ads; 1-5 ads in total per ad group.",
+                  "items": {
+                    "description": "A Demand Gen video ad (YouTube, Shorts, Discover, Gmail).",
+                    "properties": {
+                      "business_name": {
+                        "description": "Business name, max 25 chars.",
+                        "type": "string"
+                      },
+                      "descriptions": {
+                        "description": "1-5 descriptions, max 90.",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "final_url": {
+                        "description": "Landing page URL.",
+                        "type": "string"
+                      },
+                      "headlines": {
+                        "description": "1-5 headlines, max 40 chars.",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "logo_images": {
+                        "description": "Square 1:1 logos: asset IDs or https URLs (1-5).",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "long_headlines": {
+                        "description": "1-5 long headlines, max 90 chars.",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "name": {
+                        "description": "Ad name.",
+                        "type": "string"
+                      },
+                      "youtube_video_ids": {
+                        "description": "1-5 YouTube video IDs (the 11-character ID).",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "final_url",
+                      "youtube_video_ids",
+                      "headlines",
+                      "long_headlines",
+                      "descriptions",
+                      "business_name",
+                      "logo_images"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
                 }
               },
               "required": [
                 "name",
-                "location_ids",
-                "ads"
+                "location_ids"
               ],
               "type": "object"
             },
@@ -1873,6 +2450,339 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Campaign Builder Create Demand Gen Campaign"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Builds a complete Display campaign with responsive display ads.\n\nCreates the budget, the campaign, location/language targeting and 1-10\nad groups, each with its targeting (segments from find_audience_segments,\nremarketing lists, placements, topics; none means Google's optimized\ntargeting) and 1-5 responsive display ads. PAUSED by default. Images\nare asset IDs or https URLs (checked: landscape 1.91:1, square 1:1).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "ad_groups": {
+            "description": "1-10 ad groups with targeting and ads.",
+            "items": {
+              "description": "A Display ad group with its targeting and ads.",
+              "properties": {
+                "ads": {
+                  "description": "1-5 responsive display ads.",
+                  "items": {
+                    "description": "A responsive display ad.",
+                    "properties": {
+                      "business_name": {
+                        "description": "Business name, max 25 chars.",
+                        "type": "string"
+                      },
+                      "call_to_action": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "Optional call to action, e.g. 'Learn more'."
+                      },
+                      "descriptions": {
+                        "description": "1-5 descriptions, max 90.",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "final_url": {
+                        "description": "Landing page URL.",
+                        "type": "string"
+                      },
+                      "headlines": {
+                        "description": "1-5 short headlines, max 30.",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "logo_images": {
+                        "description": "Optional square logos (max 5).",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "long_headline": {
+                        "description": "Long headline, max 90 chars.",
+                        "type": "string"
+                      },
+                      "marketing_images": {
+                        "description": "Landscape 1.91:1 images: asset IDs or https URLs (1-15).",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "square_marketing_images": {
+                        "description": "Square 1:1 images: asset IDs or https URLs (1-15).",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "final_url",
+                      "headlines",
+                      "long_headline",
+                      "descriptions",
+                      "business_name",
+                      "marketing_images",
+                      "square_marketing_images"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "cpc_bid": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Default max CPC (MANUAL_CPC only)."
+                },
+                "name": {
+                  "description": "Ad group name.",
+                  "type": "string"
+                },
+                "placements": {
+                  "description": "Websites to target, e.g. example.be.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "topic_ids": {
+                  "description": "Topic constant IDs to target.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "user_interest_ids": {
+                  "description": "Affinity / in-market segment IDs to target.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "user_list_ids": {
+                  "description": "Remarketing list IDs to target.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "name",
+                "ads"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "bidding_strategy": {
+            "description": "MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE,\nMAXIMIZE_CLICKS or MANUAL_CPC.",
+            "enum": [
+              "MAXIMIZE_CONVERSIONS",
+              "MAXIMIZE_CONVERSION_VALUE",
+              "MAXIMIZE_CLICKS",
+              "MANUAL_CPC"
+            ],
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "contains_eu_political_advertising": {
+            "default": false,
+            "description": "Required EU declaration.",
+            "type": "boolean"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "daily_budget": {
+            "description": "Average daily budget in the account currency.",
+            "type": "number"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional end date YYYY-MM-DD."
+          },
+          "language_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Language constant IDs; empty = all languages."
+          },
+          "location_ids": {
+            "description": "Geo target constant IDs (at least one).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "max_cpc_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional max CPC (MAXIMIZE_CLICKS)."
+          },
+          "name": {
+            "description": "Campaign name.",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional start date YYYY-MM-DD."
+          },
+          "status": {
+            "default": "PAUSED",
+            "description": "PAUSED (default) or ENABLED.",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ],
+            "type": "string"
+          },
+          "target_cpa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional target CPA (MAXIMIZE_CONVERSIONS)."
+          },
+          "target_roas_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional target ROAS (MAXIMIZE_CONVERSION_VALUE)."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "daily_budget",
+          "bidding_strategy",
+          "location_ids",
+          "ad_groups"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_builder_create_display_campaign",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Builder Create Display Campaign"
     },
     {
       "_meta": {
@@ -2884,7 +3794,7 @@
             "description": "Language constant IDs; empty means all languages."
           },
           "location_ids": {
-            "description": "Geo target constant IDs to target (at least one).",
+            "description": "Geo target constant IDs to target (may be empty when\n`radius_targets` is given).",
             "items": {
               "type": "string"
             },
@@ -2954,6 +3864,105 @@
               "BROAD"
             ],
             "type": "string"
+          },
+          "radius_targets": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "A radius around coordinates or an address.",
+                  "properties": {
+                    "city_name": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "City."
+                    },
+                    "country_code": {
+                      "default": "BE",
+                      "description": "ISO country code.",
+                      "type": "string"
+                    },
+                    "latitude": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Latitude, e.g. 51.0543."
+                    },
+                    "longitude": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Longitude, e.g. 3.7174."
+                    },
+                    "postal_code": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Postal code."
+                    },
+                    "radius": {
+                      "description": "Radius, e.g. 15.",
+                      "type": "number"
+                    },
+                    "street_address": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Street and number (instead of coordinates)."
+                    },
+                    "unit": {
+                      "default": "KILOMETERS",
+                      "description": "KILOMETERS or MILES.",
+                      "enum": [
+                        "KILOMETERS",
+                        "MILES"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "radius"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional radius around an address or coordinates,\ne.g. {\"radius\": 25, \"city_name\": \"Gent\", \"postal_code\": \"9000\"}."
           },
           "search_partners": {
             "default": false,
@@ -3046,7 +4055,196 @@
         "destructiveHint": false,
         "readOnlyHint": false
       },
-      "description": "Adds location, language and ad schedule targeting to a campaign.\n\nLocation IDs are geo target constant IDs (e.g. 2056 = Belgium, 1001021\n= Ghent) and language IDs are language constant IDs (1010 = Dutch, 1002\n= French, 1000 = English). Look them up with the search tool, e.g.\n`SELECT geo_target_constant.id, geo_target_constant.canonical_name FROM\ngeo_target_constant WHERE geo_target_constant.name = 'Ghent'`. Adding a\nfirst ad schedule limits serving to the scheduled windows only.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "description": "Builds a standard Shopping campaign for a linked Merchant Center.\n\nCreates the budget, the campaign (Merchant Center, feed label, priority),\nlocation targeting, a product ad group with a product ad, and one product\ngroup that includes all products at `default_cpc`. For automated retail\nbidding across channels, prefer create_performance_max_campaign with a\nMerchant Center ID. PAUSED by default.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "bidding_strategy": {
+            "default": "MANUAL_CPC",
+            "description": "MANUAL_CPC (default) or MAXIMIZE_CLICKS.",
+            "enum": [
+              "MAXIMIZE_CONVERSIONS",
+              "MAXIMIZE_CONVERSION_VALUE",
+              "MAXIMIZE_CLICKS",
+              "MANUAL_CPC"
+            ],
+            "type": "string"
+          },
+          "campaign_priority": {
+            "default": 0,
+            "description": "0 (low, default), 1 or 2 (high).",
+            "type": "integer"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "contains_eu_political_advertising": {
+            "default": false,
+            "description": "Required EU declaration.",
+            "type": "boolean"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "daily_budget": {
+            "description": "Average daily budget in the account currency.",
+            "type": "number"
+          },
+          "default_cpc": {
+            "description": "Max CPC for all products (account currency).",
+            "type": "number"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional end date YYYY-MM-DD."
+          },
+          "feed_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional Merchant Center feed label (e.g. BE)."
+          },
+          "location_ids": {
+            "description": "Geo target constant IDs (at least one).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "max_cpc_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional max CPC limit (MAXIMIZE_CLICKS)."
+          },
+          "merchant_center_id": {
+            "description": "Linked Merchant Center account ID.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Campaign name.",
+            "type": "string"
+          },
+          "search_partners": {
+            "default": false,
+            "description": "Also show on search partners (default off).",
+            "type": "boolean"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional start date YYYY-MM-DD."
+          },
+          "status": {
+            "default": "PAUSED",
+            "description": "PAUSED (default) or ENABLED.",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ],
+            "type": "string"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "daily_budget",
+          "merchant_center_id",
+          "location_ids",
+          "default_cpc"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_builder_create_shopping_campaign",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Builder Create Shopping Campaign"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Adds location, radius, language and ad schedule targeting.\n\nLocation IDs are geo target constant IDs (e.g. 2056 = Belgium, 1001021\n= Ghent) and language IDs are language constant IDs (1010 = Dutch, 1002\n= French, 1000 = English). Look them up with the search tool, e.g.\n`SELECT geo_target_constant.id, geo_target_constant.canonical_name FROM\ngeo_target_constant WHERE geo_target_constant.name = 'Ghent'`. Adding a\nfirst ad schedule limits serving to the scheduled windows only.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -3183,6 +4381,105 @@
             ],
             "default": null,
             "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "radius_targets": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "A radius around coordinates or an address.",
+                  "properties": {
+                    "city_name": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "City."
+                    },
+                    "country_code": {
+                      "default": "BE",
+                      "description": "ISO country code.",
+                      "type": "string"
+                    },
+                    "latitude": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Latitude, e.g. 51.0543."
+                    },
+                    "longitude": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Longitude, e.g. 3.7174."
+                    },
+                    "postal_code": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Postal code."
+                    },
+                    "radius": {
+                      "description": "Radius, e.g. 15.",
+                      "type": "number"
+                    },
+                    "street_address": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Street and number (instead of coordinates)."
+                    },
+                    "unit": {
+                      "default": "KILOMETERS",
+                      "description": "KILOMETERS or MILES.",
+                      "enum": [
+                        "KILOMETERS",
+                        "MILES"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "radius"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Radius around a point or address, e.g.\n{\"radius\": 20, \"city_name\": \"Gent\", \"postal_code\": \"9000\"}\nor {\"radius\": 15, \"latitude\": 51.05, \"longitude\": 3.72}."
           },
           "validate_only": {
             "default": true,
@@ -3348,7 +4645,7 @@
         "destructiveHint": false,
         "readOnlyHint": false
       },
-      "description": "Creates a call, promotion or price asset and links it in one step.\n\nPass the matching input (`call`, `promotion` or `price`) and where to\nlink it: CUSTOMER (whole account), CAMPAIGN or AD_GROUP with\n`parent_id`, or NONE to only create it (link later with link_assets).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "description": "Creates a call, promotion, price or lead form asset and links it.\n\nPass the matching input (`call`, `promotion`, `price` or `lead_form`)\nand where to link it: CUSTOMER (whole account), CAMPAIGN or AD_GROUP\nwith `parent_id`, or NONE to only create it (link later with\nlink_assets). Lead forms link to a campaign only; the account must\nhave accepted the lead form terms in Google Ads, and leads are\ndownloaded there (or sent to a CRM webhook set up in Google Ads).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -3402,13 +4699,114 @@
             "description": "Google Ads Customer ID (digits or hyphenated)."
           },
           "extension_type": {
-            "description": "CALL, PROMOTION or PRICE.",
+            "description": "CALL, PROMOTION, PRICE or LEAD_FORM.",
             "enum": [
               "CALL",
               "PROMOTION",
-              "PRICE"
+              "PRICE",
+              "LEAD_FORM"
             ],
             "type": "string"
+          },
+          "lead_form": {
+            "anyOf": [
+              {
+                "description": "A lead form shown under the ad; leads land in Google Ads.",
+                "properties": {
+                  "business_name": {
+                    "description": "Business name, max 25 chars.",
+                    "type": "string"
+                  },
+                  "call_to_action_description": {
+                    "description": "Text next to the button in the ad, max 30 chars.",
+                    "type": "string"
+                  },
+                  "call_to_action_type": {
+                    "default": "GET_QUOTE",
+                    "description": "LEARN_MORE, GET_QUOTE, APPLY_NOW, SIGN_UP, CONTACT_US, SUBSCRIBE, DOWNLOAD, BOOK_NOW, GET_OFFER, REGISTER, GET_INFO, REQUEST_DEMO, JOIN_NOW or GET_STARTED.",
+                    "type": "string"
+                  },
+                  "description": {
+                    "description": "Form description, max 200 chars.",
+                    "type": "string"
+                  },
+                  "fields": {
+                    "description": "Questions, e.g. FULL_NAME, EMAIL, PHONE_NUMBER, POSTAL_CODE, CITY, COMPANY_NAME, WORK_EMAIL, JOB_TITLE.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "final_url": {
+                    "description": "Website URL of the advertiser.",
+                    "type": "string"
+                  },
+                  "headline": {
+                    "description": "Form headline, max 30 chars.",
+                    "type": "string"
+                  },
+                  "high_intent": {
+                    "default": true,
+                    "description": "True: fewer but more qualified leads (HIGH_INTENT).",
+                    "type": "boolean"
+                  },
+                  "post_submit_call_to_action_type": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "VISIT_SITE, DOWNLOAD, LEARN_MORE or SHOP_NOW."
+                  },
+                  "post_submit_description": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Thank-you text, max 200 chars."
+                  },
+                  "post_submit_headline": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Thank-you headline, max 30 chars."
+                  },
+                  "privacy_policy_url": {
+                    "description": "Privacy policy URL.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "business_name",
+                  "headline",
+                  "description",
+                  "privacy_policy_url",
+                  "final_url",
+                  "call_to_action_description"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Form details for LEAD_FORM."
           },
           "link_level": {
             "default": "CAMPAIGN",
@@ -4315,6 +5713,211 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
+      "description": "Creates a portfolio bid strategy and/or moves campaigns onto one.\n\nA portfolio shares one bid strategy (and target) across campaigns, useful\nwhen campaigns are too small to learn on their own. Two uses:\n- New portfolio: pass `name` and `strategy` with an optional target, and\n  optionally `campaign_ids` to move onto it in the same step.\n- Existing portfolio: pass `bidding_strategy_id` and `campaign_ids`.\n\nMoving a campaign replaces its own strategy and restarts learning. A\ntarget that is much looser than a campaign's current target is capped\nby the server's safety limit. TARGET_IMPRESSION_SHARE (e.g. brand\ncampaigns) needs `impression_share_percent` and `max_cpc_limit`.\nFind existing portfolios with the search tool on bidding_strategy.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_removing_targets": {
+            "default": false,
+            "description": "Only after the user agreed: allow moving\ncampaigns whose target CPA / ROAS / max CPC the portfolio\ndoes not keep.",
+            "type": "boolean"
+          },
+          "bidding_strategy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Existing portfolio strategy ID."
+          },
+          "campaign_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Campaign IDs to move onto the portfolio."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "impression_share_location": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANYWHERE_ON_PAGE",
+                  "TOP_OF_PAGE",
+                  "ABSOLUTE_TOP_OF_PAGE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "ANYWHERE_ON_PAGE (default), TOP_OF_PAGE\nor ABSOLUTE_TOP_OF_PAGE."
+          },
+          "impression_share_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target impression share, e.g. 90."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "max_cpc_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Max CPC (MAXIMIZE_CLICKS; required for\nTARGET_IMPRESSION_SHARE)."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name for a new portfolio."
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "MAXIMIZE_CONVERSIONS",
+                  "MAXIMIZE_CONVERSION_VALUE",
+                  "MAXIMIZE_CLICKS",
+                  "TARGET_IMPRESSION_SHARE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE,\nMAXIMIZE_CLICKS or TARGET_IMPRESSION_SHARE (new portfolio)."
+          },
+          "target_cpa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional target CPA (MAXIMIZE_CONVERSIONS)."
+          },
+          "target_roas_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional target ROAS, e.g. 400 for 400%\n(MAXIMIZE_CONVERSION_VALUE)."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_manage_portfolio_bidding_strategy",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Manage Portfolio Bidding Strategy"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
       "description": "Applies or dismisses Google Ads recommendations.\n\nFind open recommendations with the search tool, e.g. `SELECT\nrecommendation.resource_name, recommendation.type, campaign.name FROM\nrecommendation`. APPLY uses Google's recommended values (e.g. the\nsuggested budget). The Google Ads API has no dry run for recommendations:\nthe proposal step only verifies they exist and are still open, so review\nthe type and campaign carefully before confirming.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -4399,6 +6002,128 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Campaign Management Manage Recommendations"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Creates a shared daily budget and/or moves campaigns onto one.\n\nA shared budget lets Google spread one daily amount over several\ncampaigns. Pass `name` and `daily_budget` for a new shared budget, or\n`budget_id` for an existing one, plus the campaigns to move. A new\nshared budget may not exceed the campaigns' current combined daily\nbudgets by more than the server's safety limit. Performance Max and\nsome other campaign types cannot use shared budgets; the dry run says\nso. Find shared budgets with the search tool on campaign_budget\n(campaign_budget.explicitly_shared = TRUE).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "budget_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Existing shared budget ID."
+          },
+          "campaign_ids": {
+            "description": "Campaign IDs to move onto the shared budget.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "daily_budget": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Daily amount for a new shared budget."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name for a new shared budget."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "campaign_ids"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_manage_shared_budget",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Manage Shared Budget"
     },
     {
       "_meta": {
@@ -4670,6 +6395,104 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
+      "description": "Permanently removes campaigns, ad groups, asset groups, ads or keywords.\n\nRemoval cannot be undone (removed entities cannot be re-enabled). Prefer\npausing with update_entity_status. Campaigns, ad groups and asset groups\nmust be PAUSED first; the proposal lists each entity's spend and\nconversions over the last 30 days so the user can confirm deliberately.\nNegative keywords are removed with manage_negative_keywords.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "entity_ids": {
+            "description": "IDs; ads and keywords use '{ad_group_id}~{id}'.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "entity_type": {
+            "description": "CAMPAIGN, AD_GROUP, ASSET_GROUP, AD or KEYWORD.",
+            "enum": [
+              "CAMPAIGN",
+              "AD_GROUP",
+              "ASSET_GROUP",
+              "AD",
+              "KEYWORD"
+            ],
+            "type": "string"
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "entity_type",
+          "entity_ids"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_remove_entities",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Remove Entities"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
       "description": "Replaces one headline or description text wherever it is used.\n\nFinds the exact text (case and spacing ignored) in responsive search ads,\nPerformance Max asset groups (headlines, long headlines, descriptions)\nand Demand Gen ads, and replaces only that text. All other texts, pins\nand dynamic insertions such as {KeyWord:...} stay untouched.\n- Search and Demand Gen ads are edited in place (they go through policy\n  review again but keep their statistics).\n- PMax text assets cannot be edited, so a new text asset is created,\n  linked in the same field, and the old link is removed.\nEverything happens in one atomic request. If the API rejects one\nplacement type, nothing changes; rerun with `channels` limited. Limits:\nSearch headlines 30 characters, Demand Gen headlines 40, PMax headlines\n30, long headlines and descriptions 90; dynamic insertions count as their\ndefault text.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -4783,6 +6606,203 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Campaign Management Replace Ad Text"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Undoes a recent setting change by restoring the previous values.\n\nTakes a `change_id` from get_change_history (last 30 days). Works for\nUPDATE changes to campaigns, ad groups, ads (status), keywords and other\ncriteria, budgets and bid modifiers: status, budgets, bids, targets,\nnames, URLs. Refused when the entity was changed again since (so a later\nchange is never silently overwritten), for created entities (pause or\nremove them instead) and for removals (cannot be restored). Restoring a\nhigher budget, bid or looser target is capped by the safety limit.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "change_id": {
+            "description": "The change_id from get_change_history, e.g.\ncustomers/123/changeEvents/1700000000000000~0~0.",
+            "type": "string"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "change_id"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_revert_change",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Revert Change"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Changes account-wide tracking: auto-tagging, tracking template, suffix.\n\nAuto-tagging adds the gclid that GA4 and offline conversion imports need;\nget_account_overview flags accounts where it is off. The tracking\ntemplate and final URL suffix apply to every campaign without its own.\nPass only the settings to change; an empty string removes a template or\nsuffix. Campaign-level values are set with update_campaign_settings.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_tagging_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Turn auto-tagging (gclid) on or off."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "final_url_suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "e.g. utm_source=google&utm_medium=cpc, or '' to\nremove."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "tracking_url_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "e.g. {lpurl}?src=ads, or '' to remove."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id"
+        ],
+        "type": "object"
+      },
+      "name": "campaign_management_update_account_settings",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Campaign Management Update Account Settings"
     },
     {
       "_meta": {
@@ -5133,7 +7153,7 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
-      "description": "Changes a campaign's name, start/end date or network settings.\n\nPass only the settings to change. Dates are YYYY-MM-DD in the account\ntime zone; the campaign starts at 00:00:00 and ends at 23:59:59.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "description": "Changes a campaign's name, dates, networks or tracking.\n\nPass only the settings to change. Dates are YYYY-MM-DD in the account\ntime zone; the campaign starts at 00:00:00 and ends at 23:59:59.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -5188,6 +7208,18 @@
             "default": null,
             "description": "New end date."
           },
+          "final_url_suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "e.g. utm_campaign=brand, or '' to remove."
+          },
           "login_customer_id": {
             "anyOf": [
               {
@@ -5238,6 +7270,18 @@
             ],
             "default": null,
             "description": "New start date (only before the campaign has started)."
+          },
+          "tracking_url_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Campaign tracking template, e.g.\n{lpurl}?src=ads, or '' to remove (falls back to the account)."
           },
           "validate_only": {
             "default": true,
@@ -5373,7 +7417,7 @@
         "destructiveHint": true,
         "readOnlyHint": false
       },
-      "description": "Pauses or enables campaigns, ad groups, ads or keywords.\n\nUse this to pause underperforming campaigns, ad groups, ads or keywords, or\nto re-enable them. Removing entities is intentionally not supported.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "description": "Pauses or enables campaigns, ad groups, ads or keywords.\n\nUse this to pause underperforming campaigns, ad groups, ads or keywords, or\nto re-enable them. Permanent removal is a separate tool,\nremove_entities, for paused entities only.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

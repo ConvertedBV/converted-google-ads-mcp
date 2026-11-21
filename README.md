@@ -41,7 +41,9 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >
 >   | `create_performance_max_campaign` | Budget, campaign (brand guidelines: business name and logo at campaign level), targeting and 1-10 asset groups with texts, images, YouTube videos and search theme / audience signals. |
 >   | `create_asset_group` | A complete asset group in an existing PMax campaign. |
->   | `create_demand_gen_campaign` | Budget, campaign and 1-10 ad groups with their own locations, languages, optional audience and multi-asset image ads. |
+>   | `create_demand_gen_campaign` | Budget, campaign and 1-10 ad groups with their own locations, languages, optional audience, multi-asset image ads and YouTube video ads. |
+>   | `create_display_campaign` | Budget, campaign, targeting and 1-10 Display ad groups with interests, user lists, placements, topics and responsive display ads. |
+>   | `create_shopping_campaign` | Standard Shopping: budget, campaign linked to Merchant Center (feed label, priority) and one product ad group bidding on all products. |
 >   | `create_image_assets` | Upload images from public https URLs, optionally checked for a role (landscape, square, portrait, logo). |
 >
 >   Images can be existing asset IDs or https URLs. URLs are fetched server-side
@@ -51,10 +53,25 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >
 >   Disable the namespace in `tools_config.yaml` to allow maintenance but no
 >   new campaigns.
+> - **Audience research** (read-only, Audience Insights): `suggest_audiences`
+>   (audiences from a plain-language customer description), `find_audience_segments`
+>   (affinity / in-market / life-event IDs by keyword) and
+>   `analyze_audience_composition` (interests, demographics and YouTube channels
+>   of an audience, with index vs. the country).
 > - **`audiences` tools**: `create_remarketing_list` (URL-based website
 >   visitors), `manage_audience_targeting` (user lists, interests and custom
->   audiences on Search/Display, as observation or targeting) and
->   `manage_demographic_exclusions` (age and gender).
+>   audiences on Search/Display, as observation or targeting),
+>   `manage_demographic_exclusions` (age and gender) and
+>   `upload_customer_match` (customer lists for targeting, exclusion or
+>   PMax signals: emails, phones and names are normalized and SHA-256
+>   hashed on the server, EU consent is required and sent as GRANTED).
+> - `remove_entities` (in `campaign_management`): permanent removal of
+>   campaigns, ad groups and asset groups (paused first) and ads or
+>   keywords, with 30-day spend and conversions in the proposal.
+> - `revert_change` (in `campaign_management`): undo an update from
+>   `get_change_history` (status, budgets, bids, targets, names, URLs),
+>   refused when the entity was changed again since and capped by the
+>   same guardrails.
 > - **`experiments` tools**: `create_experiment` (A/B test with a treatment draft
 >   to edit with the other tools) and `manage_experiment` (schedule, end, promote).
 > - `manage_account_exclusions` (in `campaign_management`): account-wide
@@ -63,14 +80,23 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that e
 >   exclusions (periods with broken tracking) and seasonality adjustments (short
 >   events with an expected conversion rate change), per account, channel or
 >   campaign.
+> - Account setup (in `campaign_management`): `update_account_settings`
+>   (auto-tagging, account tracking template and final URL suffix),
+>   `manage_portfolio_bidding_strategy` (create a portfolio strategy,
+>   including target impression share, and move campaigns onto it, with the
+>   target guardrail per campaign) and `manage_shared_budget` (create a
+>   shared budget and move campaigns onto it, capped against their current
+>   combined budgets). Tracking template and suffix per campaign live in
+>   `update_campaign_settings`; radius targeting (around an address or
+>   coordinates) in `add_campaign_targeting` and `create_search_campaign`.
 > - **`account` tool** (read-only): `get_account_overview`, the starting point
 >   for an account: settings, per-campaign status, spend, conversions, CPA,
 >   ROAS and impression share lost to budget, plus flags (auto-tagging off,
 >   budget-limited, spend without conversions, limited campaigns, disapproved
 >   ads). `create_performance_max_campaign` also accepts a Merchant Center ID
 >   (and feed label) for retail campaigns.
-> - `create_extension_asset` (in `campaign_management`): call, promotion and
->   price assets, created and linked to the account, a campaign or an ad group
+> - `create_extension_asset` (in `campaign_management`): call, promotion,
+>   price and lead form assets, created and linked to the account, a campaign or an ad group
 >   in one atomic step.
 > - **`keyword_planning` tools** (read-only, so also available in read-only mode):
 >   `generate_keyword_ideas` (from keywords, a URL or a site), `get_keyword_metrics`
