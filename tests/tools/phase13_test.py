@@ -332,6 +332,7 @@ class TestValueRules(MutateToolTestCase):
         self.assertIn("dimensions", update.update_mask.paths)
 
     def test_value_increase_capped(self):
+        self.search_results([], [])
         with self.assertRaisesRegex(ToolError, "safety limit"):
             cx.manage_conversion_value_rules(
                 customer_id=CID,
