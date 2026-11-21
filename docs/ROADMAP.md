@@ -5,8 +5,8 @@ accounts end to end through this server, for every campaign type and feature
 the Google Ads API allows, with every change going through propose and
 confirm and the server's guardrails.
 
-Status per phase. "Live" means merged to `main` (deployed on Vercel); "PR"
-means built and tested, waiting for merge.
+Status per phase. "Live" means merged to `main` and deployed on Vercel.
+Phases 6-9 shipped in #12, phases 10-15 in #13 (21 November 2026).
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -15,16 +15,16 @@ means built and tested, waiting for merge.
 | 2 | Performance Max, Demand Gen, images (#9) | Live |
 | 3 | Audiences, exclusions, experiments (#9) | Live |
 | 4-5 | Offline conversions, bidding adjustments, extensions, Merchant Center, account overview, server instructions, hardening (#10, #11) | Live |
-| 6 | Audience research (Audience Insights) (#12) | PR |
-| 7 | Display, Shopping, Demand Gen video (#12) | PR |
-| 8 | Account settings, portfolios, shared budgets, radius, lead forms (#12) | PR |
-| 9 | Guarded removal, undo, Customer Match (#12) | PR |
-| 10 | Custom segments, brand lists, account-level negative keywords | PR |
-| 11 | Client accounts under a manager, user invitations, answering Merchant Center link requests | PR |
-| 12 | Product groups (Shopping) and listing group filters (PMax), PMax and AI Max settings, URL exclusions | PR |
-| 13 | Ad group settings, frequency caps, ad customizers, conversion adjustments, conversion value rules | PR |
-| 14 | App campaigns | PR |
-| 15 | Billing: payments accounts, billing setups, account budgets | PR |
+| 6 | Audience research (Audience Insights) (#12) | Live |
+| 7 | Display, Shopping, Demand Gen video (#12) | Live |
+| 8 | Account settings, portfolios, shared budgets, radius, lead forms (#12) | Live |
+| 9 | Guarded removal, undo, Customer Match (#12) | Live |
+| 10 | Custom segments, brand lists, account-level negative keywords | Live |
+| 11 | Client accounts under a manager, user invitations, answering Merchant Center link requests | Live |
+| 12 | Product groups (Shopping) and listing group filters (PMax), PMax and AI Max settings, URL exclusions | Live |
+| 13 | Ad group settings, frequency caps, ad customizers, conversion adjustments, conversion value rules | Live |
+| 14 | App campaigns | Live |
+| 15 | Billing: payments accounts, billing setups, account budgets | Live |
 
 ## Coverage after phase 15
 
