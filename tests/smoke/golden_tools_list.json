@@ -10,6 +10,89 @@
         "destructiveHint": false,
         "readOnlyHint": false
       },
+      "description": "Connects the account to an existing payments account, starting now.\n\nNeeded before a new account can run ads (unless billing was set up in\nthe interface). Pick the payments account with list_payments_accounts;\nits currency must match the account. The API has no dry run for billing\nsetups, so the proposal checks the input and that the account has no\nactive or pending setup. Then set a spending cap with\nmanage_account_budget when the payments account uses monthly invoicing.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "payments_account_id": {
+            "description": "ID from list_payments_accounts, e.g.\n1234-5678-9012-3456.",
+            "type": "string"
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "payments_account_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_create_billing_setup",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account Create Billing Setup"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
       "description": "Creates a new client (advertiser) account under a manager account.\n\nCurrency and time zone cannot be changed after creation, so confirm\nthem with the user. The new account has no billing yet: someone sets up\nbilling (or consolidated billing) and accepts any terms in Google Ads\nbefore ads can run. Afterwards turn on auto-tagging with\nupdate_account_settings and build campaigns in the new account (with\nthe manager as login_customer_id).\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
       "inputSchema": {
         "additionalProperties": false,
@@ -447,6 +530,226 @@
         "x-fastmcp-wrap-result": true
       },
       "title": "Account Invite User"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Lists the payments accounts this account can be billed to.\n\nUse the payments_account_id in create_billing_setup. For consolidated\nbilling, call it on the client account with the paying manager as\nlogin_customer_id. Billing setups and account budgets are visible with\nthe search tool (billing_setup, account_budget).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          }
+        },
+        "required": [
+          "customer_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_list_payments_accounts",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account List Payments Accounts"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Sets an account budget: the most the account may spend in total.\n\nFor accounts on monthly invoicing (consolidated billing). Ads stop when\nthe limit is reached. CREATE: `billing_setup_id`, `spending_limit` and\noptional `end_date`, `name`, `purchase_order_number`; it starts now.\nUPDATE: `account_budget_id` with a new `spending_limit` and/or\n`end_date` (a higher limit is capped by the safety limit per change).\nEND: stop the budget now. Changes are proposals that Google approves\n(usually immediately); follow them with the search tool on\naccount_budget_proposal.\n\nPropose & Confirm Workflow (`validate_only` and `checksum`):\n1. Call with `validate_only=True` (the default). The request is dry-run\n   against the Google Ads API and the tool returns `change_items` (with\n   current values where available) and a `checksum`. Nothing is changed.\n2. Present the `change_items` to the user and wait for explicit approval.\n3. Only after the user confirms, call again with `validate_only=False`,\n   the exact same parameters and the returned `checksum`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "account_budget_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Existing account budget (UPDATE, END)."
+          },
+          "billing_setup_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Approved billing setup (CREATE)."
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Checksum from the prior `validate_only=True` call."
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "Google Ads Customer ID (digits or hyphenated)."
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional last day YYYY-MM-DD; none = runs until ended."
+          },
+          "login_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional manager customer ID for the\nlogin-customer-id header."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Budget name (CREATE)."
+          },
+          "operation": {
+            "description": "CREATE, UPDATE or END.",
+            "enum": [
+              "CREATE",
+              "UPDATE",
+              "END"
+            ],
+            "type": "string"
+          },
+          "purchase_order_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional PO number shown on invoices."
+          },
+          "spending_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Total spending limit in the account currency."
+          },
+          "validate_only": {
+            "default": true,
+            "description": "True (default) proposes; False commits (needs checksum).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "operation"
+        ],
+        "type": "object"
+      },
+      "name": "account_manage_account_budget",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "title": "Account Manage Account Budget"
     },
     {
       "_meta": {
