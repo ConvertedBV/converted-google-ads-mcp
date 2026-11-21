@@ -50,7 +50,10 @@ def _fetch_shared_set(ga_client: Any, cid: str, shared_set_id: str) -> Any:
         "shared_set.reference_count FROM shared_set "
         f"WHERE shared_set.id = {shared_set_id}",
     )
-    if not rows or rows[0].shared_set.type_.name != "NEGATIVE_KEYWORDS":
+    if not rows or mh.enum_name(rows[0].shared_set.type_) not in (
+        "NEGATIVE_KEYWORDS",
+        "ACCOUNT_LEVEL_NEGATIVE_KEYWORDS",
+    ):
         raise ToolError(
             f"Error: Shared set {shared_set_id} is not a negative keyword "
             "list of this account."
@@ -87,6 +90,7 @@ def manage_shared_negative_list(
     match_type: ab.KeywordMatchType = ab.KeywordMatchType.EXACT,
     criterion_ids: list[str] | None = None,
     campaign_ids: list[str] | None = None,
+    account_level: bool = False,
     login_customer_id: str | int | None = None,
     validate_only: bool = True,
     checksum: str | None = None,
@@ -95,7 +99,9 @@ def manage_shared_negative_list(
 
     Operations:
     - CREATE_LIST: `name` plus optional `keywords` (+ `match_type`) and
-      `campaign_ids` to attach right away; created atomically.
+      `campaign_ids` to attach right away; created atomically. With
+      `account_level=True` the list applies to every Search, Shopping and
+      Performance Max campaign of the account (one per account) instead.
     - ADD_KEYWORDS / REMOVE_KEYWORDS: `shared_set_id` plus `keywords` or
       `criterion_ids` (shared_criterion.criterion_id).
     - ATTACH_CAMPAIGNS / DETACH_CAMPAIGNS: `shared_set_id` plus `campaign_ids`.
@@ -110,6 +116,7 @@ def manage_shared_negative_list(
         match_type: 'EXACT' (default), 'PHRASE' or 'BROAD'.
         criterion_ids: Keyword criterion IDs to remove from the list.
         campaign_ids: Campaign IDs to attach or detach.
+        account_level: CREATE_LIST only: an account-wide list.
         login_customer_id: Optional manager customer ID for the
             login-customer-id header.
         validate_only: True (default) proposes; False commits (needs checksum).
@@ -137,6 +144,11 @@ def manage_shared_negative_list(
         campaigns = (
             mh.require_ids(campaign_ids, "campaign_ids") if campaign_ids else []
         )
+        if account_level and campaigns:
+            raise ToolError(
+                "Error: An account-level list applies to every campaign; "
+                "do not pass 'campaign_ids'."
+            )
         names = _campaign_names(ga_client, cid, campaigns) if campaigns else {}
         set_rn = f"customers/{cid}/sharedSets/-1"
         mutate_ops = []
@@ -144,8 +156,28 @@ def manage_shared_negative_list(
         shared_set = set_op.shared_set_operation.create
         shared_set.resource_name = set_rn
         shared_set.name = list_name
-        shared_set.type_ = ga_client.enums.SharedSetTypeEnum.NEGATIVE_KEYWORDS
+        set_types = ga_client.enums.SharedSetTypeEnum
+        shared_set.type_ = (
+            set_types.ACCOUNT_LEVEL_NEGATIVE_KEYWORDS
+            if account_level
+            else set_types.NEGATIVE_KEYWORDS
+        )
         mutate_ops.append(set_op)
+        if account_level:
+            account_op = ga_client.get_type("MutateOperation")
+            account_op.customer_negative_criterion_operation.create.negative_keyword_list.shared_set = (
+                set_rn
+            )
+            mutate_ops.append(account_op)
+            change_items.append(
+                pac.ChangeItem(
+                    "CREATE",
+                    "List attachment",
+                    list_name,
+                    "Account",
+                    f"all campaigns of {cid}",
+                )
+            )
         change_items.append(
             pac.ChangeItem(
                 "CREATE", "Negative Keyword List", list_name, "Name", list_name
@@ -187,6 +219,8 @@ def manage_shared_negative_list(
             match_type=match_value,
             campaign_ids=campaigns,
         )
+        if account_level:
+            payload["account_level"] = True
         return mh.run_google_ads_mutation(
             ga_client=ga_client,
             customer_id=cid,
@@ -269,6 +303,11 @@ def manage_shared_negative_list(
             "mutate_shared_criteria",
         )
     else:
+        if mh.enum_name(shared_set.type_) == "ACCOUNT_LEVEL_NEGATIVE_KEYWORDS":
+            raise ToolError(
+                "Error: This is the account-level list; it already applies "
+                "to every campaign and cannot be attached per campaign."
+            )
         campaigns = mh.require_ids(campaign_ids, "campaign_ids")
         names = _campaign_names(ga_client, cid, campaigns)
         attach = op_value == "ATTACH_CAMPAIGNS"
