@@ -34,6 +34,14 @@ from ads_mcp.tools import (
     analytics_management,
     analytics_reporting,
 )
+from unittest.mock import create_autospec
+from google.analytics.admin_v1alpha import AnalyticsAdminServiceClient
+from google.analytics.data_v1beta import BetaAnalyticsDataClient
+
+
+def _spec_client(cls):
+    """Mock that only accepts the real client's method signatures."""
+    return create_autospec(cls, instance=True)
 
 
 def _report(dims, mets, rows, totals=None, row_count=None):
@@ -266,8 +274,8 @@ class ReportsHelpersTest(unittest.TestCase):
 
 class ReportingToolsTest(unittest.TestCase):
     def setUp(self):
-        self.data = MagicMock()
-        self.admin = MagicMock()
+        self.data = _spec_client(BetaAnalyticsDataClient)
+        self.admin = _spec_client(AnalyticsAdminServiceClient)
         patcher_d = patch.object(ga, "data_client", return_value=self.data)
         patcher_a = patch.object(ga, "admin_client", return_value=self.admin)
         self.addCleanup(patcher_d.stop)
@@ -411,7 +419,7 @@ class ChannelPerformanceTest(unittest.TestCase):
 
 class ManagementTest(unittest.TestCase):
     def setUp(self):
-        self.admin = MagicMock()
+        self.admin = _spec_client(AnalyticsAdminServiceClient)
         patcher = patch.object(ga, "admin_client", return_value=self.admin)
         self.addCleanup(patcher.stop)
         patcher.start()

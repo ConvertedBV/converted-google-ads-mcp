@@ -43,7 +43,9 @@ def list_properties(name_contains: str | None = None) -> str:
             property display name (e.g. 'crealingua').
     """
     client = ga.admin_client()
-    pager = ga.call_api(client.list_account_summaries, page_size=200)
+    pager = ga.call_api(
+        client.list_account_summaries, request={"page_size": 200}
+    )
     needle = (name_contains or "").strip().lower()
     accounts = []
     total = 0
